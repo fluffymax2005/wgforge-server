@@ -31,9 +31,6 @@ econf_file *load_config(const char name[]);
 InterfaceConfig get_iface_config(econf_file *config, const char name[]);
 ServerConfig get_server_config(econf_file *config);
 
-template <typename T>
-void __fill_empty_key(econf_file *config, const T &value) {}
-
 // Insert error message of write operations via libeconf. Throw exception with
 // human readable message
 void __handle_libeconf_write_error(econf_err ec, const char msg[]);
