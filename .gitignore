@@ -1,0 +1,22 @@
+# Gitignore
+
+# Ignore directories
+**/build/
+**/debug/
+**/release/
+**/html/
+**latex/
+**pdf/
+**/scripts/
+**.qtcreator/
+**.vscode/
+
+# Ignore file extensions
+*.o
+*.obj
+*.asm
+*.tmp
+*.backup
+
+# Ignore specific files
+**compile_commands.json

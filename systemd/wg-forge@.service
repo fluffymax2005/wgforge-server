@@ -1,0 +1,53 @@
+#
+# WgForge — C++ daemon to server http request to manage Wireguard interface in background 
+# Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005 <santech_montage@mail.ru>
+#
+# This file is part of WgForge.
+#
+# libwgcpp is free software: you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# libwgcpp is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with WgForge. If not, see <https://www.gnu.org/licenses/>.
+#
+
+# /usr/lib/systemd/wg-forge@.service
+[Unit]
+Description=WgForge daemon for Wireguard interface %I
+Documentation=https://github.com/fluffymax2005/WgForge
+Wants=network-online.target nss-lookup.target
+After=network-online.target nss-lookup.target
+BindsTo=sys-subsystem-net-devices-%i.device
+
+[Service]
+Type=notify
+User=root
+Group=root
+
+ExecStart=/usr/bin/wgforge-server %I
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+StandardOutput=journal
+StandardError=kmsg
+SyslogIdentifier=wgforge-%I
+
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+StateDirectory=wgforge
+
+[Install]
+WantedBy=multi-user.target
+
+
+
