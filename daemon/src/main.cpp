@@ -24,15 +24,31 @@ int main(int argc, char *argv[]) {
     // Config
     econf_file *config = WgForge::load_config(argv[1]);
 
+#if defined(_DEBUG) || !defined(NDEBUG)
+    WgForge::log_info("Configuring Wireguard interface");
+#endif
+
     // Wireguard iface
     WgForge::WgInterface iface = WgForge::setup_wginterface(config, argv[1]);
+
+#if defined(_DEBUG) || !defined(NDEBUG)
+    WgForge::log_info("Configuring SQLite Database");
+#endif
 
     // SQLite3 DB
     sqlite3 *db = WgForge::setup_database(argv[1]);
 
+#if defined(_NDEBUG) || !defined(NDEBUG)
+    WgForge::log_info("Configuring HTTP server endpoints");
+#endif
+
     WgForge::EndpointArgs args{iface, db};
     WgForge::RequestHandler handler;
     WgForge::setup_endpoints(args, handler);
+
+#if defined(_NDEBUG) || !defined(NDEBUG)
+    WgForge::log_info("Configuring HTTP server");
+#endif
 
     // HTTP server
     WgForge::WgForgeServer s = WgForge::setup_wgforgeserver(config);
