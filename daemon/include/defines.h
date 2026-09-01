@@ -38,15 +38,17 @@ struct EndpointArgs {
 };
 
 struct InterfaceConfig {
+  char addr[INET6_ADDRSTRLEN +
+            7]; // [<ipv6_addr>]:<port> -> 1 + 39 + 1 + 1 + 3 + \0
+  WgPrivateKey private_key;
   char name[IFNAMSIZ];
   in_port_t listenPort;
-  char addr[46]; // [<ipv6_addr>]:<port> -> 1 + 39 + 1 + 1 + 3 + \0
   Protocol proto_type;
-  WgPrivateKey private_key;
+  bool checkSubnet;
 };
 
 struct ServerConfig {
-  char addr[40]; // IPv6 has maximum 39 chars
+  char addr[INET6_ADDRSTRLEN]; // IPv6 has maximum 39 chars
   in_port_t listenPort;
 };
 
