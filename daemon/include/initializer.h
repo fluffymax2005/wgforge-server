@@ -40,9 +40,6 @@ void __handle_libeconf_write_error(econf_err ec, const char msg[]);
 void __handle_libeconf_read_error(econf_err ec, const char group[],
                                   const char option[]);
 
-// Assign IP address to Wireguard interface
-void __assign_ip_address(const InterfaceConfig &config);
-
 // Create config both for interface and http server. Implies lack of
 // /usr/wgorge/<wg_interface_name>.conf
 econf_file *create_config(const char name[]);

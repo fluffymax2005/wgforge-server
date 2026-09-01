@@ -1,13 +1,13 @@
 #include "initializer.h"
 #include "handlers.h"
-#include <cerrno>
+#include "inetutils.h"
+#include "subnetscanner.h"
 
 #include <arpa/inet.h>
+#include <cerrno>
 #include <format>
 #include <libeconf.h>
-#include <netlink/netlink.h>
-#include <netlink/route/addr.h>
-#include <netlink/route/link.h>
+
 #include <sqlite3.h>
 
 namespace WgForge {
@@ -128,6 +128,10 @@ econf_file *load_config(const char name[]) {
 WgForgeServer setup_wgforgeserver(econf_file *config) {
   auto srvCfg = get_server_config(config);
 
+  if (!InetUtils::isPortFree(srvCfg.addr, srvCfg.listenPort))
+    throw std::invalid_argument(
+        "[Interface] provided config for IP address and port which are busy");
+
   return WgForgeServer(srvCfg.addr, std::to_string(srvCfg.listenPort));
 }
 
@@ -136,101 +140,18 @@ WgInterface setup_wginterface(econf_file *config, const char name[]) {
   WgInterface iface(name);
   auto ifaceCfg = get_iface_config(config, name);
 
+  if (ifaceCfg.checkSubnet && !SubnetScanner::isSubnetFree(ifaceCfg.addr))
+    throw std::invalid_argument(
+        std::format("Provided subnet \"{}\" contains host", ifaceCfg.addr));
+
   iface.setListenPort(ifaceCfg.listenPort);
   iface.setPrivateKey(std::move(ifaceCfg.private_key));
   iface.set();
 
-  __assign_ip_address(ifaceCfg);
+  InetUtils::assignIpAddress(ifaceCfg);
 
   iface.bringUp();
   return iface;
-}
-
-void __assign_ip_address(const InterfaceConfig &config) {
-  struct nl_sock *sock = nl_socket_alloc();
-  if (sock == nullptr)
-    throw std::runtime_error(
-        "Failed to allocate nl socket to configure interface");
-
-  auto ec = nl_connect(sock, NETLINK_ROUTE);
-  if (ec < 0) {
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to connect nl socket to kernel");
-  }
-
-  struct nl_cache *cache;
-  if ((ec = rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache)) < 0) {
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to allocate rtnl link cache");
-  }
-
-  struct rtnl_link *link = rtnl_link_get_by_name(cache, config.name);
-  if (link == nullptr) {
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to get rtnl link");
-  }
-
-  struct rtnl_addr *addr = rtnl_addr_alloc();
-  if (addr == nullptr) {
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to allocate rntl address");
-  }
-
-  rtnl_addr_set_ifindex(addr, rtnl_link_get_ifindex(link));
-  rtnl_addr_set_family(addr, AF_INET);
-
-  struct in_addr ipv4_addr;
-  char
-      ip_text_addr[sizeof(config.addr) - 5]{}; // not include [], :, port number
-  const auto *slash_pos{std::strchr(config.addr, '/')};
-  std::strncpy(ip_text_addr, config.addr,
-               slash_pos - config.addr); // copy address
-  inet_pton(AF_INET, ip_text_addr, &ipv4_addr);
-
-  struct nl_addr *local_addr =
-      nl_addr_build(AF_INET, &ipv4_addr, sizeof(ipv4_addr));
-  if (local_addr == nullptr) {
-    rtnl_addr_put(addr);
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to build network address");
-  }
-
-  rtnl_addr_set_local(addr, local_addr);
-
-  int32_t prefix_len{};
-  try {
-    prefix_len = std::stoi(std::string(slash_pos + 1));
-  } catch (...) {
-    nl_addr_put(local_addr);
-    rtnl_addr_put(addr);
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to convert prefix to int");
-  }
-  rtnl_addr_set_prefixlen(addr, prefix_len);
-
-  ec = rtnl_addr_add(sock, addr, 0);
-
-  nl_addr_put(local_addr);
-  rtnl_addr_put(addr);
-  rtnl_link_put(link);
-  nl_cache_free(cache);
-  nl_close(sock);
-  nl_socket_free(sock);
-
-  if (ec < 0)
-    throw std::runtime_error("Failed to add interface address");
 }
 
 econf_file *create_config(const char name[]) {
@@ -257,27 +178,28 @@ econf_file *create_config(const char name[]) {
       ECONF_SUCCESS)
     __handle_libeconf_write_error(ec, errMsg);
 
-// [Interface]
-// Address=<cidr>
-// TODO Implement finding free address space
-#ifdef __PHONY_CONFIG__
-  std::snprintf(buf, sizeof(buf), "10.0.0.1/24");
-#else
-#endif
-  if ((ec = econf_setStringValue(config, "Interface", "Address", buf)) !=
-      ECONF_SUCCESS)
+  // [Interface]
+  // Address=<cidr>
+  // Default suffix = 24
+  const auto iface_address = SubnetScanner::findFreeSubnet(24);
+  if ((ec = econf_setStringValue(config, "Interface", "Address",
+                                 iface_address.c_str())) != ECONF_SUCCESS)
     __handle_libeconf_write_error(ec, errMsg);
 
-// [Server]
-// Address=<local_listen_address>
-// TODO Get loopback free address space where port 51819 (pre Wireguard
-// default) is available. See up.
-#ifdef __PHONY_CONFIG__
-  std::snprintf(buf, sizeof(buf), "127.0.0.1");
-#else
-#endif
-  if ((ec = econf_setStringValue(config, "Server", "Address", buf)) !=
-      ECONF_SUCCESS)
+  // [Interface]
+  // CheckSubnet=<true_or_false>
+  // Should programm check subnet for WgInterface before start?
+  // Default is true
+  constexpr const char checkSubnet[] = "true";
+  if ((ec = econf_setBoolValue(config, "Interface", "CheckSubnet",
+                               checkSubnet)) != ECONF_SUCCESS)
+    __handle_libeconf_write_error(ec, errMsg);
+
+  // [Server]
+  // Address=<local_listen_address>
+  const auto srv_address = InetUtils::findFreeLoopbackAddress(51819);
+  if ((ec = econf_setStringValue(config, "Server", "Address",
+                                 srv_address.c_str())) != ECONF_SUCCESS)
     __handle_libeconf_write_error(ec, errMsg);
 
   // [Server]
@@ -352,6 +274,13 @@ InterfaceConfig get_iface_config(econf_file *config, const char name[]) {
 
   ifaceCfg.private_key = WgPrivateKey{private_key_raw};
 
+  // CheckSubnet
+  bool checkSubnet;
+  if ((ec = econf_getBoolValue(config, "Interface", "CheckSubnet",
+                               &checkSubnet)) != ECONF_SUCCESS)
+    __handle_libeconf_read_error(ec, "Interface", "CheckSubnet");
+  ifaceCfg.checkSubnet = checkSubnet;
+
   return ifaceCfg;
 }
 ServerConfig get_server_config(econf_file *config) {
@@ -398,7 +327,7 @@ void __handle_libeconf_read_error(econf_err ec, const char group[],
     break;
   case ECONF_MISSING_BRACKET:
     err_msg = std::format("Error config parsing, missing closing section "
-                          "bracket for \"%s\" group",
+                          "bracket for \"{}\" group",
                           group);
     break;
   case ECONF_MISSING_DELIMITER:
@@ -422,7 +351,7 @@ void __handle_libeconf_read_error(econf_err ec, const char group[],
         group);
   }
 
-  throw std::runtime_error(std::format("{}: {}. Error code (libeconf): %i",
+  throw std::runtime_error(std::format("{}: {}. Error code (libeconf): {}",
                                        err_msg, econf_errString(ec),
                                        static_cast<int>(ec)));
 }
