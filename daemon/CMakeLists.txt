@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/initializer.cpp
     src/subnetscanner.cpp
+    src/inetutils.cpp
 
     http_server/src/connection.cpp
     http_server/src/connection_manager.cpp
