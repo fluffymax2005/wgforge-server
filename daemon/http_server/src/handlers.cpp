@@ -147,11 +147,22 @@ void peers(Request req, Response res, EndpointArgs &args) {
   json::object j;
   auto *pdb = args.pdb;
   sqlite3_stmt *stmt = nullptr;
-  constexpr auto query = "SELECT id, Public_key, Preshared_key, Private_key, "
-                         "Presistent_keepalive, Description, Create_at, "
-                         "Updated_at FROM Peers WHERE Deleted_at IS NOT NULL";
+  constexpr const char query[] =
+      R"(
+      SELECT 
+            id, 
+            Public_key,
+            Preshared_key,
+            Private_key,
+            Persistent_keepalive, 
+            Description, 
+            Created_at, 
+            Updated_at 
+        FROM Peers 
+        WHERE Deleted_at IS NOT NULL
+      )";
   if (sqlite3_prepare_v2(pdb, query, -1, &stmt, nullptr) != SQLITE_OK) {
-    constexpr auto error = "failed to get peers data. Error message: ";
+    constexpr auto error = "Failed to get peers data. Error message: ";
     log_error("/peers [GET]: ", error, sqlite3_errmsg(pdb));
 
     res.result(http::status::internal_server_error);
