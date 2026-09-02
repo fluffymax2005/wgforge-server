@@ -1,4 +1,7 @@
 #include "handlers.h"
+#include <libnl3/netlink/netlink.h>
+#include <libnl3/netlink/route/addr.h>
+#include <libnl3/netlink/route/link.h>
 #include <sqlite3.h>
 
 namespace WgForge {
@@ -11,12 +14,95 @@ void interface__get(Request req, Response res, EndpointArgs &args) {
     return;
   }
 
-  json::object obj;
-  obj["interface_name"] = args.iface.getName() ? args.iface.getName() : "";
-  obj["is_up"] = args.iface.isSet() ? true : false;
-  obj["listen_port"] = args.iface.getPort();
+  auto &iface = args.iface;
 
-  auto private_key_opt = args.iface.getPrivateKey();
+  // Iface address
+  nl_sock *sock = nl_socket_alloc();
+  if (sock == nullptr) {
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  auto ec = nl_connect(sock, NETLINK_ROUTE);
+  if (ec < 0) {
+    nl_socket_free(sock);
+
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  nl_cache *link_cache;
+  if ((ec = rtnl_link_alloc_cache(sock, AF_INET, &link_cache)) < 0) {
+    nl_close(sock);
+    nl_socket_free(sock);
+
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  rtnl_link *link = rtnl_link_get_by_name(link_cache, iface.getName());
+  if (link == nullptr) {
+    nl_cache_free(link_cache);
+    nl_close(sock);
+    nl_socket_free(sock);
+
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  nl_cache *addr_cache;
+  if ((ec = rtnl_addr_alloc_cache(sock, &addr_cache)) < 0) {
+    rtnl_link_put(link);
+    nl_cache_free(link_cache);
+    nl_close(sock);
+    nl_socket_free(sock);
+
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  auto ifaceIndex = rtnl_link_get_ifindex(link);
+  char ip_addr[INET_ADDRSTRLEN]{'\0'};
+
+  nl_object *object = nl_cache_get_first(addr_cache);
+  while (object) {
+    rtnl_addr *addr = reinterpret_cast<rtnl_addr *>(object);
+    if (rtnl_addr_get_ifindex(addr) == ifaceIndex) {
+      nl_addr *local = rtnl_addr_get_local(addr);
+      if (local) {
+        nl_addr2str(local, ip_addr, sizeof(ip_addr));
+        break;
+      }
+    }
+
+    object = nl_cache_get_next(object);
+  }
+
+  nl_cache_free(addr_cache);
+  rtnl_link_put(link);
+  nl_cache_free(link_cache);
+  nl_close(sock);
+  nl_socket_free(sock);
+
+  // Failed to found ip address
+  if (ip_addr[0] == '\0') {
+    res.result(http::status::internal_server_error);
+    res.prepare_payload();
+    return;
+  }
+
+  json::object obj;
+  obj["interface_name"] = iface.getName() ? iface.getName() : "";
+  obj["is_up"] = iface.isUp() ? true : false;
+  obj["listen_port"] = iface.getPort();
+  obj["ip_address"] = ip_addr;
+
+  auto private_key_opt = iface.getPrivateKey();
   char buf[sizeof(wg_key_b64_string)]{};
   if (private_key_opt.has_value()) {
     WgPrivateKey key = std::move(private_key_opt.value());
@@ -24,16 +110,12 @@ void interface__get(Request req, Response res, EndpointArgs &args) {
     obj["private_key"] = buf;
   }
 
-  auto public_key_opt = args.iface.getPublicKey();
+  auto public_key_opt = iface.getPublicKey();
   if (public_key_opt.has_value()) {
     WgPublicKey key = std::move(public_key_opt.value());
     wg_key_to_base64(buf, key.data());
     obj["public_key"] = buf;
   }
-
-  // TODO
-  // Read DNS from config. Insert later
-  // constexpr auto query = "SELECT ";
 
   res.result(http::status::ok);
   res.set(http::field::content_type, "application/json");
