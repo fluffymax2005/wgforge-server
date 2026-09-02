@@ -88,7 +88,6 @@ sqlite3 *__init_database(const char *filepath) {
         Peer_id INTEGER NOT NULL,
         CIDR TEXT NOT NULL,
         Created_at DATETIME DEFAULT CURRENT_STAMP,
-        Updated_at DATETIME,
         Deleted_at DATETIME,
         FOREIGN KEY (Peer_id) REFERENCES Peers(Id) ON DELETE CASCADE
     );
