@@ -19,13 +19,18 @@ sqlite3 *setup_database(const char *iface_name) {
   constexpr size_t BUF_SIZE =
       (sizeof(prefix) - 1) + (IFNAMSIZ - 1) + sizeof(ext);
   char buf[BUF_SIZE]{};
+
+#ifndef __PHONY_CONFIG__
   std::snprintf(buf, BUF_SIZE, "%s%s%s", prefix, iface_name, ext);
+#else
+  std::snprintf(buf, BUF_SIZE, "./%s%s", iface_name, ext);
+#endif
 
   // Open SQlite db connection
   sqlite3 *db = nullptr;
   int rc = sqlite3_open_v2(
       buf, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nullptr);
-  // Failed to open sqlite db
+
   if (rc != SQLITE_OK) {
     // Get Linux error code
     rc = sqlite3_extended_errcode(db) >> 8;
@@ -34,33 +39,79 @@ sqlite3 *setup_database(const char *iface_name) {
     if (rc == EACCES || rc == EISDIR) {
       sqlite3_close_v2(db);
       throw std::runtime_error(
-          std::string("Can't open database by filepath \"") + buf +
-          "\": " + sqlite3_errmsg(db));
+          std::format("Can't open database by filepath \"{}\": {}", buf,
+                      sqlite3_errmsg(db)));
     }
 
     // File does not exists. Open and initialize it
-    return WgForge::__init_database(iface_name);
+    db = __init_database(buf);
   }
+
+  WgForge::log_info(db);
 
   // DB opened successfully
   return db;
 }
 
-sqlite3 *__init_database(const char *filename) {
+sqlite3 *__init_database(const char *filepath) {
   sqlite3 *db = nullptr;
-  int rc = sqlite3_open_v2(filename, &db,
+  int rc = sqlite3_open_v2(filepath, &db,
                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
                                SQLITE_OPEN_FULLMUTEX,
                            nullptr);
   if (rc != SQLITE_OK) {
     rc = sqlite3_extended_errcode(db);
     throw std::runtime_error(
-        std::string("Can't create database by filepath") + filename + "\": " +
-        sqlite3_errmsg(db) + ". Sqlite error code: " + std::to_string(rc) +
-        ". Linux error code: " + std::to_string((rc >> 8)));
+        std::format("Can't create database by filepath \"{}\": {}. SQLite "
+                    "error code: {}. Linux error code: ",
+                    filepath, sqlite3_errmsg(db), rc, rc >> 8));
   }
 
-  // TO DO: make db architecture + make sql queries for it
+  // SQL queries
+  constexpr const char CREATE_PEERS[] = R"(
+    CREATE TABLE IF NOT EXISTS Peers (
+        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+        Public_key TEXT UNIQUE NOT NULL CHECK(length(Public_key) = 44),
+        Preshared_key TEXT CHECK(length(Preshared_key) = 44),
+        Private_key TEXT CHECK(length(Private_key) = 44),
+        Persistent_keepalive INTEGER CHECK(Persistent_keepalive BETWEEN 1 AND 65535),
+        Description VARCHAR(25),
+        Created_at DATETIME DEFAULT CURRENT_STAMP,
+        Updated_at DATETIME,
+        Deleted_at DATETIME
+    );
+  )";
+
+  constexpr const char CREATE_ALLOWEDIPS[] = R"(
+    CREATE TABLE IF NOT EXISTS AllowedIPs (
+        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+        Peer_id INTEGER NOT NULL,
+        CIDR TEXT NOT NULL,
+        Created_at DATETIME DEFAULT CURRENT_STAMP,
+        Updated_at DATETIME,
+        Deleted_at DATETIME,
+        FOREIGN KEY (Peer_id) REFERENCES Peers(Id) ON DELETE CASCADE
+    );
+  )";
+
+  // Making requests
+  char *err_msg;
+  if (sqlite3_exec(db, CREATE_PEERS, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+    std::string error = err_msg;
+    sqlite3_free(err_msg);
+    sqlite3_close_v2(db);
+    throw std::runtime_error(
+        std::format("Failed to create Peers table: {}", error));
+  }
+
+  if (sqlite3_exec(db, CREATE_ALLOWEDIPS, nullptr, nullptr, &err_msg) !=
+      SQLITE_OK) {
+    std::string error = err_msg;
+    sqlite3_free(err_msg);
+    sqlite3_close_v2(db);
+    throw std::runtime_error(
+        std::format("Failed to create AllowedIPs table: {}", error));
+  }
 
   return db;
 }

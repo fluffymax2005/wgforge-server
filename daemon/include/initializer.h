@@ -14,7 +14,7 @@ namespace WgForge {
 
 // SQLite setup
 sqlite3 *setup_database(const char *iface_name);
-sqlite3 *__init_database(const char *filename);
+sqlite3 *__init_database(const char *filepath);
 
 // WgForge::WgForgeServer setup
 void setup_endpoints(EndpointArgs &args, RequestHandler &handler);

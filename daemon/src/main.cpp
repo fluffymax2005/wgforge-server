@@ -7,8 +7,10 @@
 #include <exception>
 #include <iostream>
 #include <sqlite3.h>
-#include <string>
 #include <wginterface.hpp>
+
+// Create phony config for tests
+#define __PHONY_CONFIG__
 
 int main(int argc, char *argv[]) {
   // Check command line arguments.
@@ -20,6 +22,9 @@ int main(int argc, char *argv[]) {
   }
 
   try {
+#if defined(_DEBUG) || !defined(NDEBUG)
+    WgForge::log_info("Loading config or creating if it does not exist");
+#endif
 
     // Config
     econf_file *config = WgForge::load_config(argv[1]);
