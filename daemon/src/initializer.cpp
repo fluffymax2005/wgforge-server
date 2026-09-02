@@ -47,8 +47,6 @@ sqlite3 *setup_database(const char *iface_name) {
     db = __init_database(buf);
   }
 
-  WgForge::log_info(db);
-
   // DB opened successfully
   return db;
 }
