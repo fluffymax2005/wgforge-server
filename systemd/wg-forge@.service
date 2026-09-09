@@ -29,7 +29,7 @@ BindsTo=sys-subsystem-net-devices-%i.device
 [Service]
 Type=notify
 User=root
-Group=root
+Group=wgforge
 
 ExecStart=/usr/bin/wgforge-server %I
 Restart=on-failure
