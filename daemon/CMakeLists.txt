@@ -39,11 +39,13 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Boost::boost
         Boost::json
+        Boost::url
         SQLite3::SQLite3
         wgcpp
         econf
         nl-3
         nl-route-3
+        wgforge-common
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
