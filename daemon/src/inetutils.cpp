@@ -130,7 +130,7 @@ std::string InetUtils::findFreeLoopbackAddress(in_port_t port, bool isTCP) {
   char buf[INET_ADDRSTRLEN]{};
   for (uint16_t o2 = 0; o2 < 256; o2++) {
     for (uint16_t o3 = 0; o3 < 256; o3++) {
-      for (uint16_t o4 = 0; o4 < 256; o4++) {
+      for (uint16_t o4 = 1; o4 < 256; o4++) {
         std::snprintf(buf, sizeof(buf), "127.%i.%i.%i", o2, o3, o4);
         try {
           if (isPortFree(buf, port, isTCP))
