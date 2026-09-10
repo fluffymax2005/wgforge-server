@@ -54,7 +54,7 @@ public:
   SQLiteDbManager(SQLiteDbManager &&other) noexcept;
   SQLiteDbManager &operator=(SQLiteDbManager &&other) noexcept;
 
-  ~SQLiteDbManager() noexcept;
+  ~SQLiteDbManager() noexcept = default;
 
   explicit operator bool() const noexcept;
 

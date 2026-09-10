@@ -1,6 +1,7 @@
 #ifndef __WGFORGE_CONFIG_MANAGER_H__
 #define __WGFORGE_CONFIG_MANAGER_H__
 
+#include <functional>
 #include <libeconf.h>
 #include <memory>
 #include <mutex>
@@ -27,6 +28,8 @@ public:
 
   ConfigManager(ConfigManager &&other) noexcept;
   ConfigManager &operator=(ConfigManager &&other) noexcept;
+
+  ~ConfigManager() = default;
 
   inline bool isOpen() const noexcept;
   explicit operator bool() const noexcept;
