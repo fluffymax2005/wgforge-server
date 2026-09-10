@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <libeconf.h>
+#include <string>
 #include <string_view>
 
 #include "config_write_register.h"
@@ -60,11 +61,11 @@ inline ConfigWriteRegister::WriteReturnCode writeDouble(econf_file *config,
   return econf_setDoubleValue(config, group.data(), option.data(), value);
 }
 
-ConfigWriteRegister::WriteReturnCode
+inline ConfigWriteRegister::WriteReturnCode
 writeString(econf_file *config, std::string_view group, std::string_view option,
-            const std::string_view &value) {
+            const std::string &value) {
   return econf_setStringValue(config, group.data(), option.data(),
-                              value.data());
+                              value.c_str());
 }
 
 } // namespace LibeconfWriters

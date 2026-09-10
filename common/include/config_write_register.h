@@ -50,7 +50,12 @@ void ConfigWriteRegister::registerWriter(WriteFunc<T> func) {
       [func](econf_file *config, std::string_view group,
              std::string_view option,
              const std::any &value) -> WriteReturnCode {
-    return func(config, group, option, value);
+    try {
+      const T &typed = std::any_cast<const T &>(value);
+      return func(config, group, option, typed);
+    } catch (const std::bad_any_cast &) {
+      return WGFORGE_CONFIG_INVALID_TYPE;
+    }
   };
 }
 
@@ -68,7 +73,7 @@ ConfigWriteRegister::write(econf_file *config, std::string_view group,
   if (it == writers_.end())
     return WGFORGE_CONFIG_WRITER_NOT_FOUND;
 
-  WriteReturnCode rc = it->second(config, group, option, value);
+  WriteReturnCode rc = it->second(config, group, option, std::any(value));
   return rc;
 }
 

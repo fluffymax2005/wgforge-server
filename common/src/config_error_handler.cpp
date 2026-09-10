@@ -28,6 +28,9 @@ std::string ConfigErrorHandler::toString(ConfigManager::ConfigReturnCode rc,
   case WGFORGE_CONFIG_INVALID_TYPE:
     return "Reading from config failed. Inapproriate reader provided for "
            "specified type";
+
+  default:
+    return "Unknown libeconf error code: " + std::to_string(rc);
   }
 }
 

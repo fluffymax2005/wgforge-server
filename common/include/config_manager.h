@@ -55,7 +55,7 @@ private:
   std::unique_ptr<econf_file, ConfigDeleter> cfg_;
   ConfigReadWriteRegister rw_reg_;
   bool readonly_;
-  std::mutex mtx_;
+  mutable std::mutex mtx_;
 
   void registerDefaultReadersImpl();
   void registerDefaultWritersImpl();
