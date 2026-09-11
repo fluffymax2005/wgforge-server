@@ -45,10 +45,12 @@ public:
   write(std::string_view group, std::string_view option, const T &value);
 
   template <typename T>
-  std::optional<T> tryRead(std::string_view group, std::string_view option,
-                           ConfigReadRegister::ReadReturnCode *rc = nullptr);
+  std::optional<T>
+  tryRead(std::string_view group, std::string_view option,
+          ConfigReadRegister::ReadReturnCode *rc = nullptr) const;
 
-  template <typename T> T read(std::string_view group, std::string_view option);
+  template <typename T>
+  T read(std::string_view group, std::string_view option) const;
 
 private:
   struct ConfigDeleter {
@@ -87,7 +89,7 @@ void ConfigManager::setReadWriteRegister(TRegister &&reg) {
 template <typename T>
 std::optional<T>
 ConfigManager::tryRead(std::string_view group, std::string_view option,
-                       ConfigReadRegister::ReadReturnCode *rc) {
+                       ConfigReadRegister::ReadReturnCode *rc) const {
   if (!isOpen())
     return WGFORGE_CONFIG_CLOSED;
 
@@ -101,7 +103,7 @@ ConfigManager::tryRead(std::string_view group, std::string_view option,
 }
 
 template <typename T>
-T ConfigManager::read(std::string_view group, std::string_view option) {
+T ConfigManager::read(std::string_view group, std::string_view option) const {
   if (!isOpen())
     return WGFORGE_CONFIG_CLOSED;
 
