@@ -48,6 +48,8 @@ std::string SQLiteErrorHandler::toString(SQLiteDbManager::SQLiteReturnCode rc,
     return "AllowedIP not found";
   case WGFORGE_DATABASE_READONLY:
     return "Database is read-only";
+  case WGFORGE_DATABASE_STRATEGY_NO_TARGET:
+    return "No callback function provided for given context";
 
   default:
     return "Unknown SQLITE error code: " + std::to_string(rc);

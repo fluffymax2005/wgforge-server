@@ -77,7 +77,7 @@ SQLiteDbManager::rawSql(std::string_view query, CallbackFunction strategy,
                         void *context) noexcept {
   if (!isOpen())
     return WGFORGE_CONNECTION_CLOSED;
-  if (!strategy)
+  if (context && !strategy)
     return WGFORGE_DATABASE_STRATEGY_NO_TARGET;
   std::lock_guard lock(mtx_);
   if (readonly_)
