@@ -34,9 +34,67 @@ std::string ConfigErrorHandler::toString(ConfigManager::ConfigReturnCode rc,
   }
 }
 
+std::string ConfigErrorHandler::readToString(ConfigManager::ConfigReturnCode rc,
+                                             std::string_view group,
+                                             std::string_view option,
+                                             bool *ok) {
+  std::string err_msg;
+  switch (rc) {
+  case ECONF_SUCCESS:
+    return "";
+  case ECONF_NOKEY:
+    err_msg = std::format(
+        "Error config parsing, no \"{}\" option in [{}] found", option, group);
+    break;
+  case ECONF_NOGROUP:
+    err_msg = std::format("Error config parsing, no [{}] found", group);
+    break;
+  case ECONF_MISSING_BRACKET:
+    err_msg = std::format("Error config parsing, missing closing section "
+                          "bracket for \"{}\" group",
+                          group);
+    break;
+  case ECONF_MISSING_DELIMITER:
+    err_msg = std::format(
+        "Error config parsing, missing delimiter for \"{}\" in [{}]", option,
+        group);
+    break;
+  case ECONF_EMPTY_SECTION_NAME:
+    err_msg = "Error config parsing, empty section name found";
+    break;
+  case ECONF_TEXT_AFTER_SECTION:
+    err_msg = "Error config parsing, text after section found";
+    break;
+  case ECONF_OPTION_NOT_FOUND:
+    err_msg =
+        std::format("Error config parsing, option \"{}\" not found", option);
+    break;
+  default:
+    err_msg = std::format(
+        "Error occures while reading file for option \"{}\" in [{}]", option,
+        group);
+  }
+
+  if (ok)
+    *ok = rc == ECONF_SUCCESS;
+
+  return std::format("{}: {}. Error code (libeconf): {}", err_msg,
+                     econf_errString(static_cast<econf_err>(rc)), rc);
+}
+
+std::string
+ConfigErrorHandler::writeToString(ConfigManager::ConfigReturnCode rc,
+                                  std::string_view msg, bool *ok) {
+  if (ok)
+    *ok = rc == ECONF_SUCCESS;
+  return std::format("%s: %s. Error code (libeconf): %i", msg,
+                     econf_errString(static_cast<econf_err>(rc)), rc);
+}
+
 void ConfigErrorHandler::throwIfError(ConfigManager::ConfigReturnCode rc) {
-  if (rc != ECONF_SUCCESS)
+  if (rc != ECONF_SUCCESS) {
     throw std::runtime_error(toString(rc));
+  }
 }
 
 } // namespace WgForge
