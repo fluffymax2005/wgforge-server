@@ -73,9 +73,25 @@ inline bool SQLiteDbManager::isOpen() const noexcept {
 }
 
 SQLiteDbManager::SQLiteReturnCode
+SQLiteDbManager::rawSql(std::string_view query, CallbackFunction strategy,
+                        void *context) noexcept {
+  if (!isOpen())
+    return WGFORGE_CONNECTION_CLOSED;
+  if (!strategy)
+    return WGFORGE_DATABASE_STRATEGY_NO_TARGET;
+  std::lock_guard lock(mtx_);
+  if (readonly_)
+    return WGFORGE_DATABASE_READONLY;
+
+  return sqlite3_exec(db_.get(), query.data(), strategy, context, nullptr);
+}
+
+SQLiteDbManager::SQLiteReturnCode
 SQLiteDbManager::getPeer(std::string_view public_key, PeerConfig &peer) const {
   using WgKey = WgKey<__THREAD_SAFETY__>;
-  if (!isOpen() || !WgKey::validateB64StringKey(public_key))
+  if (!isOpen())
+    return WGFORGE_CONNECTION_CLOSED;
+  if (!WgKey::validateB64StringKey(public_key))
     return WGFORGE_INVALID_ARGUMENT;
 
   SQLiteReturnCode rc;

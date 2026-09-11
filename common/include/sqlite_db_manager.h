@@ -2,6 +2,7 @@
 #define __WGFORGE_SQLITEDBMANAGER_H__
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -43,6 +44,7 @@ struct PeerConfig {
 class SQLiteDbManager {
 public:
   using SQLiteReturnCode = int;
+  using CallbackFunction = int (*)(void *, int, char **, char **);
 
   SQLiteDbManager() noexcept = default;
   explicit SQLiteDbManager(std::string_view path,
@@ -61,6 +63,10 @@ public:
   SQLiteReturnCode openConnection(std::string_view path, bool readonly = true);
   inline void closeConnection() noexcept;
   inline bool isOpen() const noexcept;
+
+  SQLiteReturnCode rawSql(std::string_view query,
+                          CallbackFunction strategy = nullptr,
+                          void *context = nullptr) noexcept;
 
   SQLiteReturnCode getPeer(std::string_view public_key, PeerConfig &peer) const;
   std::vector<PeerConfig> getAllPeers(SQLiteReturnCode *rc = nullptr) const;
