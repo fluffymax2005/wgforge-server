@@ -13,7 +13,7 @@ std::string ConfigErrorHandler::toString(ConfigManager::ConfigReturnCode rc,
     return econf_errString(static_cast<econf_err>(rc));
 
   switch (rc) {
-  case ECONF_SUCCESS:
+  case WGFORGE_CONFIG_OK:
     return "";
   case WGFORGE_CONFIG_READONLY:
     return "Config is opened in read-only mode";
@@ -28,7 +28,14 @@ std::string ConfigErrorHandler::toString(ConfigManager::ConfigReturnCode rc,
   case WGFORGE_CONFIG_INVALID_TYPE:
     return "Reading from config failed. Inapproriate reader provided for "
            "specified type";
-
+  case WGFORGE_CONFIG_NOMEM:
+    return "Creating config failed. Not enough memory";
+  case WGFORGE_CONFIG_TRANSACTION_ACTIVE:
+    return "Config transaction is active";
+  case WGFORGE_CONFIG_TRANSACTION_INACTIVE:
+    return "Config transaction is inactive";
+  case WGFORGE_CONFIG_RUNTIME_ERROR:
+    return "Config runtime operation error";
   default:
     return "Unknown libeconf error code: " + std::to_string(rc);
   }
