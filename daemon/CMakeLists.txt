@@ -4,7 +4,7 @@ set(PROJECT_NAME wgforge-server)
 
 project(${PROJECT_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(POLICY CMP0167)
@@ -32,6 +32,7 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
     include/
     http_server/include/
+    #${CMAKE_SOURCE_DIR}/common/include
     /usr/include/libnl3/
 )
 
