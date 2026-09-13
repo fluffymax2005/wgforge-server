@@ -9,8 +9,11 @@
 
 #include <boost/beast.hpp>
 #include <boost/json.hpp>
+#include <config_manager.h>
+#include <libeconf.h>
 #include <libwgcpp/wginterface.hpp>
 #include <sqlite3.h>
+#include <sqlite_db_manager.h>
 
 namespace WgForge {
 
@@ -32,9 +35,11 @@ using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
 
 struct EndpointArgs {
   WgInterface &iface;
-  sqlite3 *pdb;
+  ConfigManager &config;
+  SQLiteDbManager &db;
 
-  EndpointArgs(WgInterface &iface, sqlite3 *db) : iface(iface), pdb(db) {}
+  EndpointArgs(WgInterface &iface, ConfigManager &cfg, SQLiteDbManager &db)
+      : iface(iface), config(cfg), db(db) {}
 };
 
 struct InterfaceConfig {
