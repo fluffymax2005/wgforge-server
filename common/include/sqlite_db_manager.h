@@ -2,7 +2,6 @@
 #define __WGFORGE_SQLITEDBMANAGER_H__
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -11,35 +10,10 @@
 #include <string_view>
 #include <vector>
 
+#include "peer_config.h"
 #include "wgforge.h"
 
 namespace WgForge {
-
-struct PeerRecord {
-  int64_t id;
-  std::string public_key;
-  std::optional<std::string> preshared_key;
-  std::optional<std::string> private_key;
-  uint16_t persistent_keepalive;
-  std::optional<std::string> description;
-  std::string created_at;
-  std::optional<std::string> updated_at;
-  std::optional<std::string> deleted_at;
-};
-
-struct AllowedIPRecord {
-  int64_t id;
-  int64_t peer_id;
-  std::string cidr;
-  std::string created_at;
-  std::optional<std::string> updated_at;
-  std::optional<std::string> deleted_at;
-};
-
-struct PeerConfig {
-  PeerRecord record;
-  std::vector<std::string> allowed_ips;
-};
 
 class SQLiteDbManager {
 public:

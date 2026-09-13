@@ -16,6 +16,7 @@ add_library(${COMMON_NAME} STATIC
     src/sqlite_error_handler.cpp
     src/config_error_handler.cpp
     src/config_manager.cpp
+    src/peer_config.cpp
 )
 
 target_include_directories(${COMMON_NAME}
