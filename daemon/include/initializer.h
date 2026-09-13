@@ -5,7 +5,9 @@
 #include "request_handler.h"
 #include "wgforgeserver.h"
 
+#include <config_manager.h>
 #include <libeconf.h>
+#include <sqlite_db_manager.h>
 
 // Write to config phony data
 #define __PHONY_CONFIG__
@@ -13,36 +15,25 @@
 namespace WgForge {
 
 // SQLite setup
-sqlite3 *setup_database(const char *iface_name);
-sqlite3 *__init_database(const char *filepath);
+void setup_database(SQLiteDbManager &db);
 
 // WgForge::WgForgeServer setup
 void setup_endpoints(EndpointArgs &args, RequestHandler &handler);
 
 // WgInterface setup
-WgInterface setup_wginterface(econf_file *config, const char name[]);
+WgInterface setup_wginterface(const ConfigManager &config, const char name[]);
 
 // WgForge::WgForgeServer setup
-WgForgeServer setup_wgforgeserver(econf_file *config);
+WgForgeServer setup_wgforgeserver(const ConfigManager &config);
 
-// Load config
-econf_file *load_config(const char name[]);
-
-InterfaceConfig get_iface_config(econf_file *config, const char name[]);
-ServerConfig get_server_config(econf_file *config);
-
-// Insert error message of write operations via libeconf. Throw exception with
-// human readable message
-void __handle_libeconf_write_error(econf_err ec, const char msg[]);
-
-// Insert error message of read operations via libeconf. Throw exception with
-// human readable message
-void __handle_libeconf_read_error(econf_err ec, const char group[],
-                                  const char option[]);
+InterfaceConfig get_iface_config(const ConfigManager &config,
+                                 const char name[]);
+ServerConfig get_server_config(const ConfigManager &config);
 
 // Create config both for interface and http server. Implies lack of
 // /usr/wgorge/<wg_interface_name>.conf
-econf_file *create_config(const char name[]);
+econf_file *create_config(std::string_view path,
+                          ConfigManager::ConfigReturnCode &rc) noexcept;
 } // namespace WgForge
 
 #endif // __WGFORGE_EXECUTION_INITIALIZER_H__

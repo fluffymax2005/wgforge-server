@@ -1,10 +1,13 @@
-
+#include "config_error_handler.h"
+#include "config_manager.h"
 #include "handlers.h"
 #include "initializer.h"
 #include "request_handler.h"
+#include "sqlite_db_manager.h"
 #include "wgforgeserver.h"
 
 #include <exception>
+#include <format>
 #include <iostream>
 #include <sqlite3.h>
 #include <wginterface.hpp>
@@ -22,46 +25,47 @@ int main(int argc, char *argv[]) {
   }
 
   try {
-#if defined(_DEBUG) || !defined(NDEBUG)
     WgForge::log_info("Loading config or creating if it does not exist");
-#endif
 
     // Config
-    econf_file *config = WgForge::load_config(argv[1]);
+    WgForge::ConfigManager config_manager;
 
-#if defined(_DEBUG) || !defined(NDEBUG)
+    const std::string conf_path(std::format("/etc/wgforge/{}.conf", argv[1]));
+    config_manager.open(conf_path, false);
+
+    WgForge::ConfigManager::ConfigReturnCode cfg_rc{};
+    if (!config_manager.isOpen())
+      cfg_rc = config_manager.create(conf_path, WgForge::create_config);
+
+    WgForge::ConfigErrorHandler::throwIfError(cfg_rc);
+
     WgForge::log_info("Configuring Wireguard interface");
-#endif
 
     // Wireguard iface
-    WgForge::WgInterface iface = WgForge::setup_wginterface(config, argv[1]);
+    WgForge::WgInterface iface =
+        WgForge::setup_wginterface(config_manager, argv[1]);
 
-#if defined(_DEBUG) || !defined(NDEBUG)
     WgForge::log_info("Configuring SQLite Database");
-#endif
 
     // SQLite3 DB
-    sqlite3 *db = WgForge::setup_database(argv[1]);
+    const std::string db_path(
+        std::format("/var/lib/wgforge/{}.sqlite", argv[1]));
+    WgForge::SQLiteDbManager db_manager(db_path, false);
 
-#if defined(_NDEBUG) || !defined(NDEBUG)
     WgForge::log_info("Configuring HTTP server endpoints");
-#endif
 
-    WgForge::EndpointArgs args{iface, db};
+    WgForge::EndpointArgs args{iface, config_manager, db_manager};
     WgForge::RequestHandler handler;
     WgForge::setup_endpoints(args, handler);
 
-#if defined(_NDEBUG) || !defined(NDEBUG)
     WgForge::log_info("Configuring HTTP server");
-#endif
 
     // HTTP server
-    WgForge::WgForgeServer s = WgForge::setup_wgforgeserver(config);
+    WgForge::WgForgeServer s = WgForge::setup_wgforgeserver(config_manager);
     s.setHandler(std::move(handler));
 
-#if defined(_DEBUG) || !defined(NDEBUG)
-    const auto srvCfg = WgForge::get_server_config(config);
-    const auto ifaceCfg = WgForge::get_iface_config(config, argv[1]);
+    const auto srvCfg = WgForge::get_server_config(config_manager);
+    const auto ifaceCfg = WgForge::get_iface_config(config_manager, argv[1]);
 
     WgForge::log_info("HTTP server is listening on ", srvCfg.addr, ':',
                       srvCfg.listenPort);
@@ -69,10 +73,6 @@ int main(int argc, char *argv[]) {
         "Wireguard VPN tunnel is listening on 0.0.0.0:", ifaceCfg.listenPort,
         ". Proto: ", ifaceCfg.proto_type == Protocol::IPv4 ? "IPv4" : "IPv6",
         ". VPN tunnel address: ", ifaceCfg.addr);
-#endif
-
-    // Release config
-    econf_freeFile(config);
 
     // Run the server until stopped.
     s.run();
