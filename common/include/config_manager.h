@@ -20,6 +20,7 @@ public:
 
   ConfigManager();
   explicit ConfigManager(std::string_view path, bool readonly = true) noexcept;
+  explicit ConfigManager(econf_file *config, bool readonly = true) noexcept;
 
   template <typename TRegister> void setReadWriteRegister(TRegister &&reg);
 
@@ -36,6 +37,15 @@ public:
 
   ConfigReturnCode open(std::string_view path, bool readonly = true);
   inline void close() noexcept;
+
+  void set(econf_file *config, bool readonly = true) noexcept;
+  inline econf_file *release() noexcept;
+
+  ConfigReturnCode beginTransaction() noexcept;
+  ConfigReturnCode commit() noexcept;
+  void rollBack() noexcept;
+
+  inline bool inTransaction() const noexcept;
 
   ConfigReturnCode create(std::string_view path,
                           CreateConfigStrategy strategy) noexcept;
@@ -58,8 +68,11 @@ private:
   };
 
   std::unique_ptr<econf_file, ConfigDeleter> cfg_;
+  std::unique_ptr<econf_file, ConfigDeleter> snapshot_;
+
   ConfigReadWriteRegister rw_reg_;
   bool readonly_;
+  bool in_transaction_ = false;
   mutable std::mutex mtx_;
 
   void registerDefaultReadersImpl();
@@ -108,6 +121,26 @@ T ConfigManager::read(std::string_view group, std::string_view option) const {
     return WGFORGE_CONFIG_CLOSED;
 
   return rw_reg_.read<T>(cfg_.get(), group, option);
+}
+
+inline bool ConfigManager::isOpen() const noexcept {
+  std::lock_guard lock(mtx_);
+  return cfg_.get();
+}
+
+inline void ConfigManager::close() noexcept {
+  std::lock_guard lock(mtx_);
+  cfg_.reset();
+}
+
+inline econf_file *ConfigManager::release() noexcept {
+  std::lock_guard lock(mtx_);
+  return cfg_.release();
+}
+
+inline bool ConfigManager::inTransaction() const noexcept {
+  std::lock_guard lock(mtx_);
+  return in_transaction_;
 }
 
 } // namespace WgForge

@@ -2,6 +2,8 @@
 #include "config_read_functions.h"
 #include "config_write_functions.h"
 
+#include <filesystem>
+
 namespace WgForge {
 
 ConfigManager::ConfigManager() {
@@ -34,6 +36,10 @@ ConfigManager::ConfigManager(std::string_view path, bool readonly) noexcept {
   open(path, readonly);
 }
 
+ConfigManager::ConfigManager(econf_file *config, bool readonly) noexcept {
+  set(config, readonly);
+}
+
 ConfigManager::ConfigManager(ConfigManager &&other) noexcept {
   if (this != &other) {
     std::lock_guard lock(other.mtx_);
@@ -56,9 +62,82 @@ ConfigManager &ConfigManager::operator=(ConfigManager &&other) noexcept {
   return *this;
 }
 
-inline bool ConfigManager::isOpen() const noexcept {
+ConfigManager::ConfigReturnCode ConfigManager::beginTransaction() noexcept {
+  if (!isOpen())
+    return WGFORGE_CONFIG_CLOSED;
+
   std::lock_guard lock(mtx_);
-  return cfg_.get();
+  if (readonly_)
+    return WGFORGE_CONFIG_READONLY;
+  if (in_transaction_)
+    return WGFORGE_CONFIG_TRANSACTION_ACTIVE;
+
+  // Get config full path
+  char *raw_path = econf_getPath(cfg_.get());
+  if (raw_path == nullptr)
+    return WGFORGE_CONFIG_NOMEM;
+  std::unique_ptr<char, decltype(&free)> path_guard(raw_path, &free);
+
+  // Read file for copy
+  econf_file *copy;
+  econf_err ec = econf_readFile(&copy, raw_path, "=", "#");
+  if (ec != ECONF_SUCCESS)
+    return WGFORGE_CONFIG_NOMEM;
+
+  snapshot_.reset(copy);
+  in_transaction_ = true;
+  return WGFORGE_CONFIG_OK;
+}
+
+ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
+  namespace fs = std::filesystem;
+
+  if (!isOpen())
+    return WGFORGE_CONFIG_CLOSED;
+
+  std::lock_guard lock(mtx_);
+  if (readonly_)
+    return WGFORGE_CONFIG_READONLY;
+  if (!in_transaction_)
+    return WGFORGE_CONFIG_TRANSACTION_INACTIVE;
+
+  // Get fullpath
+  char *raw_path = econf_getPath(cfg_.get());
+  if (raw_path == nullptr)
+    return WGFORGE_CONFIG_NOMEM;
+  std::unique_ptr<char, decltype(&free)> path_guard(raw_path, &free);
+
+  fs::path path(raw_path);
+  fs::path tmp_path = path.parent_path() / (path.filename().string() + ".tmp");
+
+  // Write into tmp file
+  econf_err ec = econf_writeFile(cfg_.get(), tmp_path.parent_path().c_str(),
+                                 tmp_path.filename().c_str());
+  if (ec != ECONF_SUCCESS)
+    fs::remove(tmp_path);
+  return WGFORGE_CONFIG_RUNTIME_ERROR;
+
+  std::error_code fs_ec;
+  fs::rename(tmp_path, path, fs_ec);
+
+  if (fs_ec) {
+    fs::remove(tmp_path);
+    return WGFORGE_CONFIG_RUNTIME_ERROR;
+  }
+
+  snapshot_.reset();
+  in_transaction_ = false;
+  return WGFORGE_CONFIG_OK;
+}
+
+void ConfigManager::rollBack() noexcept {
+  std::lock_guard lock(mtx_);
+
+  if (!in_transaction_)
+    return;
+
+  cfg_ = std::move(snapshot_);
+  in_transaction_ = false;
 }
 
 ConfigManager::operator bool() const noexcept { return isOpen(); }
@@ -75,9 +154,10 @@ ConfigManager::ConfigReturnCode ConfigManager::open(std::string_view path,
   return ec;
 }
 
-inline void ConfigManager::close() noexcept {
+void ConfigManager::set(econf_file *context, bool readonly) noexcept {
   std::lock_guard lock(mtx_);
-  cfg_.reset();
+  cfg_.reset(context);
+  readonly_ = readonly;
 }
 
 ConfigManager::ConfigReturnCode
