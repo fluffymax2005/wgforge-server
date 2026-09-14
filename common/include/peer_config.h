@@ -16,6 +16,7 @@ struct PeerRecord {
   std::string public_key;
   std::optional<std::string> preshared_key;
   std::optional<std::string> private_key;
+  std::string cidr;
   uint16_t persistent_keepalive;
   std::optional<std::string> description;
   std::string created_at;

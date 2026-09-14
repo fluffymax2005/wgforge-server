@@ -103,12 +103,13 @@ SQLiteDbManager::getPeer(std::string_view public_key, PeerConfig &peer) const {
             p.Public_key,
             p.Preshared_key,
             p.Private_key,
+            p.CIDR,
             p.Persistent_keepalive, 
             p.Description, 
             p.Created_at, 
             p.Updated_at
          FROM Peers p
-         WHERE p.Deleted_at IS NOT NULL AND p.Public_key = ?
+         WHERE p.Deleted_at IS NULL AND p.Public_key = ?
       )";
 
   auto allowed_ips = getAllowedIPs(public_key, &rc);
@@ -159,12 +160,13 @@ SQLiteDbManager::getAllPeers(SQLiteReturnCode *rc) const {
             p.Public_key,
             p.Preshared_key,
             p.Private_key,
+            p.CIDR,
             p.Persistent_keepalive, 
             p.Description, 
             p.Created_at, 
             p.Updated_at 
          FROM Peers p
-         WHERE p.Deleted_at IS NOT NULL
+         WHERE p.Deleted_at IS NULL
       )";
 
   {
@@ -238,8 +240,8 @@ SQLiteDbManager::addPeer(const PeerConfig &peer) noexcept {
 
   constexpr const char INSERT_PEER[] = R"(
     INSERT INTO Peers (Public_key, Preshared_key, Private_key,
-                       Persistent_keepalive, Description)
-    VALUES (?, ?, ?, ?, ?)
+                       CIDR, Persistent_keepalive, Description)
+    VALUES (?, ?, ?, ?, ?, ?)
   )";
 
   // Prepare inserting peer
@@ -250,27 +252,31 @@ SQLiteDbManager::addPeer(const PeerConfig &peer) noexcept {
   }
 
   // Bind fields
-  sqlite3_bind_text(stmt, 1, peer.record.public_key.c_str(), -1, SQLITE_STATIC);
+  uint8_t index = 1;
+  sqlite3_bind_text(stmt, index++, peer.record.public_key.c_str(), -1,
+                    SQLITE_STATIC);
 
   if (peer.record.preshared_key.has_value())
-    sqlite3_bind_text(stmt, 2, peer.record.preshared_key->c_str(), -1,
+    sqlite3_bind_text(stmt, index++, peer.record.preshared_key->c_str(), -1,
                       SQLITE_STATIC);
   else
-    sqlite3_bind_null(stmt, 2);
+    sqlite3_bind_null(stmt, index++);
 
   if (peer.record.private_key.has_value())
-    sqlite3_bind_text(stmt, 3, peer.record.private_key->c_str(), -1,
+    sqlite3_bind_text(stmt, index++, peer.record.private_key->c_str(), -1,
                       SQLITE_STATIC);
   else
-    sqlite3_bind_null(stmt, 3);
+    sqlite3_bind_null(stmt, index++);
 
-  sqlite3_bind_int(stmt, 4, peer.record.persistent_keepalive);
+  sqlite3_bind_text(stmt, index++, peer.record.cidr.c_str(), -1, SQLITE_STATIC);
+
+  sqlite3_bind_int(stmt, index++, peer.record.persistent_keepalive);
 
   if (peer.record.description.has_value())
-    sqlite3_bind_text(stmt, 5, peer.record.description->c_str(), -1,
+    sqlite3_bind_text(stmt, index++, peer.record.description->c_str(), -1,
                       SQLITE_STATIC);
   else
-    sqlite3_bind_null(stmt, 5);
+    sqlite3_bind_null(stmt, index++);
 
   // Make step to insert
   if ((rc = sqlite3_step(stmt)) != SQLITE_OK) {
@@ -296,8 +302,9 @@ SQLiteDbManager::addPeer(const PeerConfig &peer) noexcept {
       return rc;
     }
 
-    sqlite3_bind_int64(stmt, 1, peer_id);
-    sqlite3_bind_text(stmt, 2, cidr.c_str(), -1, SQLITE_STATIC);
+    index = 1;
+    sqlite3_bind_int64(stmt, index++, peer_id);
+    sqlite3_bind_text(stmt, index++, cidr.c_str(), -1, SQLITE_STATIC);
 
     if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
       sqlite3_finalize(stmt);
@@ -344,7 +351,7 @@ SQLiteDbManager::updatePeer(std::string_view public_key,
 
   uint8_t param_index = 1;
 
-  // Bind параметров в том же порядке
+  // Binding
   if (peer.preshared_key.has_value())
     sqlite3_bind_text(stmt, param_index++, peer.preshared_key->c_str(), -1,
                       SQLITE_STATIC);
@@ -696,26 +703,31 @@ PeerRecord SQLiteDbManager::__fillPeerRecord(sqlite3_stmt *stmt) const {
   PeerRecord peer;
   peer.id = sqlite3_column_int64(stmt, 0);
 
+  uint8_t index = 1;
   const char *pstr;
-  __convertText(&pstr, 1, stmt);
+  __convertText(&pstr, index++, stmt);
   if (std::strlen(pstr))
     peer.public_key = pstr;
 
-  __convertText(&pstr, 2, stmt);
+  __convertText(&pstr, index++, stmt);
   if (std::strlen(pstr))
     peer.private_key = pstr;
 
-  peer.persistent_keepalive = sqlite3_column_int(stmt, 3);
+  __convertText(&pstr, index++, stmt);
+  if (std::strlen(pstr))
+    peer.cidr = pstr;
 
-  __convertText(&pstr, 4, stmt);
+  peer.persistent_keepalive = sqlite3_column_int(stmt, index++);
+
+  __convertText(&pstr, index++, stmt);
   if (std::strlen(pstr))
     peer.description = pstr;
 
-  __convertText(&pstr, 5, stmt);
+  __convertText(&pstr, index++, stmt);
   if (std::strlen(pstr))
     peer.created_at = pstr;
 
-  __convertText(&pstr, 6, stmt);
+  __convertText(&pstr, index++, stmt);
   if (std::strlen(pstr))
     peer.updated_at = pstr;
 
