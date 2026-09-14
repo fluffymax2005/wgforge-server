@@ -3,6 +3,7 @@
 #include <netlink/netlink.h>
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
+#include <unordered_set>
 
 namespace WgForge {
 
@@ -142,6 +143,72 @@ std::string InetUtils::findFreeLoopbackAddress(in_port_t port, bool isTCP) {
   }
 
   return "";
+}
+
+std::string
+InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
+                                    const std::vector<std::string_view> cidrs) {
+  auto parsed = parseCIDR4Impl(gatewayCIDR);
+  if (!parsed)
+    return "";
+
+  auto [network, prefix] = *parsed;
+  const uint32_t host_count = 1u << (32 - prefix);
+  const uint32_t first_host = network + 1;
+  const uint32_t last_host = first_host + host_count;
+
+  std::unordered_set<uint32_t> used;
+  for (const auto &c : cidrs) {
+    auto p = parseCIDR4Impl(c);
+    if (!p)
+      continue;
+    used.insert(p->first);
+  }
+  used.insert(first_host);
+
+  for (uint32_t ip = first_host + 1; ip < last_host; ip++) {
+    if (used.find(ip) == used.end())
+      return toCIDR4Impl(ip, prefix);
+  }
+
+  return "";
+}
+
+static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
+  in_addr in;
+  in.s_addr = ip_host;
+  char buf[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &in, buf, sizeof(buf));
+  return std::format("{}/{}", buf, prefix);
+}
+
+static std::optional<std::pair<uint32_t, uint8_t>>
+parseCIDR4Impl(std::string_view cidr) {
+  const auto slash_pos = cidr.find_first_of('/');
+  if (slash_pos == std::string_view::npos ||
+      slash_pos != cidr.find_last_of('/'))
+    return std::nullopt;
+
+  std::string addr(cidr.substr(0, slash_pos));
+  int prefix;
+  try {
+    prefix = std::stoi(std::string(cidr.substr(slash_pos + 1)));
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (prefix < 0 || prefix > 32)
+    return std::nullopt;
+
+  in_addr in;
+  if (inet_pton(AF_INET, addr.c_str(), &in) != 1)
+    return std::nullopt;
+
+  uint32_t ip = ntohl(in.s_addr);
+  uint32_t mask = prefix == 0 ? 0 : (0xFFFFFFFFu << (32 - prefix));
+  uint32_t network = ip & mask;
+
+  return std::make_pair(network, static_cast<uint8_t>(prefix));
 }
 
 } // namespace WgForge
