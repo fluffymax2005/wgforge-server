@@ -25,6 +25,7 @@ void setup_database(SQLiteDbManager &db) {
         Public_key TEXT UNIQUE NOT NULL CHECK(length(Public_key) = 44),
         Preshared_key TEXT CHECK(length(Preshared_key) = 44),
         Private_key TEXT CHECK(length(Private_key) = 44),
+        CIDR TEXT,
         Persistent_keepalive INTEGER CHECK(Persistent_keepalive BETWEEN 1 AND 65535),
         Description VARCHAR(25),
         Created_at DATETIME DEFAULT CURRENT_STAMP,
