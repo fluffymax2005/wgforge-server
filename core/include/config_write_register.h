@@ -14,7 +14,7 @@
 namespace WgForge {
 
 class ConfigWriteRegister {
-  public:
+public:
   using WriteReturnCode = int;
 
   using UniversalWriteFunc = std::function<WriteReturnCode(
@@ -41,7 +41,7 @@ class ConfigWriteRegister {
   WriteReturnCode write(econf_file* config, std::string_view group, std::string_view option,
                         const T& value);
 
-  protected:
+protected:
   std::unordered_map<std::type_index, UniversalWriteFunc> writers_;
 };
 

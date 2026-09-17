@@ -6,7 +6,7 @@
 namespace WgForge {
 
 class EndpointRuntimeError : public std::runtime_error {
-  public:
+public:
   EndpointRuntimeError(const std::string& msg) : std::runtime_error(msg) {}
 
   EndpointRuntimeError(const char* msg) : std::runtime_error(msg) {}

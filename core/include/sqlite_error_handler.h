@@ -8,7 +8,7 @@
 namespace WgForge {
 
 class SQLiteErrorHandler {
-  public:
+public:
   static std::string toString(SQLiteDbManager::SQLiteReturnCode rc, bool* ok = nullptr);
   static void throwIfError(SQLiteDbManager::SQLiteReturnCode rc);
 };

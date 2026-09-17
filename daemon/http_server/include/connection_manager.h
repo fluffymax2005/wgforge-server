@@ -20,7 +20,7 @@ namespace WgForge {
 /// Manages open connections so that they may be cleanly stopped when the server
 /// needs to shut down.
 class ConnectionManager {
-  public:
+public:
   ConnectionManager(const ConnectionManager&) = delete;
   ConnectionManager& operator=(const ConnectionManager&) = delete;
 
@@ -36,7 +36,7 @@ class ConnectionManager {
     /// Stop all connections.
   void stop_all();
 
-  private:
+private:
     /// The managed connections.
   std::set<connection_ptr> connections_;
 };

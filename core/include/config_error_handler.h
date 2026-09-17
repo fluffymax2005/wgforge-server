@@ -8,7 +8,7 @@
 namespace WgForge {
 
 class ConfigErrorHandler {
-  public:
+public:
   static std::string toString(ConfigManager::ConfigReturnCode rc, bool* ok = nullptr);
 
   static std::string readToString(ConfigManager::ConfigReturnCode rc, std::string_view group,

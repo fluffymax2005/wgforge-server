@@ -11,7 +11,7 @@
 namespace WgForge {
 
 class WgForgeServer {
-  public:
+public:
   WgForgeServer(const WgForgeServer&) = delete;
   WgForgeServer& operator=(const WgForgeServer&) = delete;
 
@@ -21,7 +21,7 @@ class WgForgeServer {
 
   void run();
 
-  private:
+private:
   void do_accept();
   void do_await_stop();
 

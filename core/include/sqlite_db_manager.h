@@ -17,7 +17,7 @@
 namespace WgForge {
 
 class SQLiteDbManager {
-  public:
+public:
   using SQLiteReturnCode = int;
   using CallbackFunction = int (*)(void*, int, char**, char**);
 
@@ -52,7 +52,7 @@ class SQLiteDbManager {
   std::vector<std::string> getAllowedIPs(std::string_view public_key,
                                          SQLiteReturnCode* rc = nullptr) const;
 
-  private:
+private:
   struct DbDeleter {
 	void operator()(sqlite3* p) noexcept;
   };

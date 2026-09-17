@@ -6,7 +6,7 @@
 namespace WgForge {
 
 class EndpointInvalidArgument : public std::invalid_argument {
-  public:
+public:
   EndpointInvalidArgument(const std::string& msg) : std::invalid_argument(msg) {}
 
   EndpointInvalidArgument(const char* msg) : std::invalid_argument(msg) {}

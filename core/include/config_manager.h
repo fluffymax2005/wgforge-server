@@ -14,7 +14,7 @@
 namespace WgForge {
 
 class ConfigManager {
-  public:
+public:
   using ConfigReturnCode = int;
   using CreateConfigStrategy =
       std::move_only_function<econf_file*(std::string_view path, ConfigReturnCode& rc) noexcept>;
@@ -62,7 +62,7 @@ class ConfigManager {
   template<typename T>
   T read(std::string_view group, std::string_view option) const;
 
-  private:
+private:
   struct ConfigDeleter {
 	void operator()(econf_file* p) noexcept;
   };

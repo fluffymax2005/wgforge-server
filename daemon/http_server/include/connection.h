@@ -26,7 +26,7 @@ class ConnectionManager;
 
 /// Represents a single Connection from a client.
 class Connection : public std::enable_shared_from_this<Connection> {
-  public:
+public:
   Connection(const Connection&) = delete;
   Connection& operator=(const Connection&) = delete;
 
@@ -40,7 +40,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
     /// Stop all asynchronous operations associated with the Connection.
   void stop();
 
-  private:
+private:
     /// Perform an asynchronous read operation.
   void do_read();
 

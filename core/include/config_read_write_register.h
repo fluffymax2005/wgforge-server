@@ -7,7 +7,7 @@
 namespace WgForge {
 
 class ConfigReadWriteRegister : public ConfigReadRegister, public ConfigWriteRegister {
-  public:
+public:
   ConfigReadWriteRegister() = default;
 
   ConfigReadWriteRegister(const ConfigReadWriteRegister&) = default;

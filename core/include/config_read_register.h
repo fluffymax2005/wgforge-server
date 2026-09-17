@@ -16,7 +16,7 @@
 namespace WgForge {
 
 class ConfigReadRegister {
-  public:
+public:
   using ReadReturnCode = int;
 
   using UniversalReadFunc = std::function<std::any(econf_file* config, std::string_view group,
@@ -50,7 +50,7 @@ class ConfigReadRegister {
   std::optional<T> tryRead(econf_file* config, std::string_view group, std::string_view option,
                            ReadReturnCode* rc = nullptr);
 
-  protected:
+protected:
   std::unordered_map<std::type_index, UniversalReadFunc> readers_;
 
   template<typename T>

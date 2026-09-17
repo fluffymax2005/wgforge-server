@@ -57,4 +57,4 @@ ReflowComments: Never
 SeparateDefinitionBlocks: Always
 EmptyLineBeforeAccessModifier: Always
 IndentPPDirectives: BeforeHash
-AccessModifierOffset: -4
+AccessModifierOffset: -2

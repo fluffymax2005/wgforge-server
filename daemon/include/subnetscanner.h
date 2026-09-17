@@ -15,13 +15,13 @@
 
 // IPv4 only
 class SubnetScanner {
-  public:
+public:
   SubnetScanner() = delete;
 
   static std::optional<bool> isSubnetFree(std::string_view cidr, float timeout_seconds = 1);
   static std::string findFreeSubnet(uint8_t suffix, float timeout_seconds = 1);
 
-  private:
+private:
   static unsigned short checksum(void* b, int len);
   static void ping_host(int id, std::string_view ipv4_address, std::atomic<bool>& network_has_host,
                         float timeout_seconds = 1);

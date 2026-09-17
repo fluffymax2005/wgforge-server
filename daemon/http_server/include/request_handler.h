@@ -38,7 +38,7 @@ struct RouteKeyHash {
 
 /// The common handler for all incoming requests.
 class RequestHandler {
-  public:
+public:
   RequestHandler(const RequestHandler&) = delete;
   RequestHandler& operator=(const RequestHandler&) = delete;
 
@@ -54,7 +54,7 @@ class RequestHandler {
   void handle_request(const http::request<http::string_body>& req,
                       http::response<http::string_body>& res);
 
-  private:
+private:
   std::unordered_map<RouteKey, HandlerFunc, RouteKeyHash> routes_;
 };
 
