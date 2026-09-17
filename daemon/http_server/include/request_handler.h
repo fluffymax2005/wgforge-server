@@ -25,39 +25,36 @@ struct RouteKey {
   http::verb method;
   std::string path;
 
-  bool operator==(const RouteKey &other) const {
-    return method == other.method && path == other.path;
+  bool operator==(const RouteKey& other) const {
+	return method == other.method && path == other.path;
   }
 };
 
 struct RouteKeyHash {
-  size_t operator()(const RouteKey &key) const {
-    return std::hash<int>()(static_cast<int>(key.method)) ^
-           std::hash<std::string_view>()(key.path);
+  size_t operator()(const RouteKey& key) const {
+	return std::hash<int>()(static_cast<int>(key.method)) ^ std::hash<std::string_view>()(key.path);
   }
 };
 
 /// The common handler for all incoming requests.
 class RequestHandler {
-public:
-  RequestHandler(const RequestHandler &) = delete;
-  RequestHandler &operator=(const RequestHandler &) = delete;
+  public:
+  RequestHandler(const RequestHandler&) = delete;
+  RequestHandler& operator=(const RequestHandler&) = delete;
 
-  using HandlerFunc =
-      std::function<void(const http::request<beast::http::string_body> &,
-                         http::response<beast::http::string_body> &)>;
+  using HandlerFunc = std::function<void(const http::request<beast::http::string_body>&,
+                                         http::response<beast::http::string_body>&)>;
 
   RequestHandler() = default;
 
-  RequestHandler(RequestHandler &&) = default;
-  RequestHandler &operator=(RequestHandler &&) = default;
+  RequestHandler(RequestHandler&&) = default;
+  RequestHandler& operator=(RequestHandler&&) = default;
 
-  void add_route(http::verb method, const std::string &uri,
-                 HandlerFunc handler);
-  void handle_request(const http::request<http::string_body> &req,
-                      http::response<http::string_body> &res);
+  void add_route(http::verb method, const std::string& uri, HandlerFunc handler);
+  void handle_request(const http::request<http::string_body>& req,
+                      http::response<http::string_body>& res);
 
-private:
+  private:
   std::unordered_map<RouteKey, HandlerFunc, RouteKeyHash> routes_;
 };
 

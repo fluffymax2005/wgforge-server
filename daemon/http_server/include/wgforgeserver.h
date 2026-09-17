@@ -2,26 +2,26 @@
 #define __WGFORGE_WGFORGESERVER_H__
 
 #include <boost/asio.hpp>
+#include <string>
 
 #include "connection.h"
 #include "connection_manager.h"
 #include "request_handler.h"
-#include <string>
 
 namespace WgForge {
 
 class WgForgeServer {
-public:
-  WgForgeServer(const WgForgeServer &) = delete;
-  WgForgeServer &operator=(const WgForgeServer &) = delete;
+  public:
+  WgForgeServer(const WgForgeServer&) = delete;
+  WgForgeServer& operator=(const WgForgeServer&) = delete;
 
-  explicit WgForgeServer(const std::string &address, const std::string &port);
+  explicit WgForgeServer(const std::string& address, const std::string& port);
 
-  void setHandler(RequestHandler &&handler) noexcept;
+  void setHandler(RequestHandler&& handler) noexcept;
 
   void run();
 
-private:
+  private:
   void do_accept();
   void do_await_stop();
 

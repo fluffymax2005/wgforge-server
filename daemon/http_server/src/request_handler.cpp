@@ -16,21 +16,18 @@
 
 namespace WgForge {
 
-void RequestHandler::add_route(http::verb method, const std::string &uri,
-                               HandlerFunc handler) {
+void RequestHandler::add_route(http::verb method, const std::string& uri, HandlerFunc handler) {
   routes_.emplace(RouteKey{method, uri}, std::move(handler));
 }
 
-void RequestHandler::handle_request(
-    const http::request<beast::http::string_body> &req,
-    http::response<beast::http::string_body> &res) {
-
+void RequestHandler::handle_request(const http::request<beast::http::string_body>& req,
+                                    http::response<beast::http::string_body>& res) {
   RouteKey key{req.method(), std::string(req.target())};
 
   auto handler = routes_.find(key);
   if (handler != routes_.end()) {
-    handler->second(req, res);
-    return;
+	handler->second(req, res);
+	return;
   }
 
   res.result(http::status::not_found);

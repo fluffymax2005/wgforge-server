@@ -28,7 +28,7 @@ struct PeerConfig {
   PeerRecord record;
   std::vector<std::string> allowed_ips;
 
-  operator json::object() const &;
+  operator json::object() const&;
   operator json::object() &&;
 };
 

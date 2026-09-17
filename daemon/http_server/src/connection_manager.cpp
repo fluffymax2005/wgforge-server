@@ -12,7 +12,8 @@
 
 namespace WgForge {
 
-ConnectionManager::ConnectionManager() {}
+ConnectionManager::ConnectionManager() {
+}
 
 void ConnectionManager::start(connection_ptr c) {
   connections_.insert(c);
@@ -26,7 +27,7 @@ void ConnectionManager::stop(connection_ptr c) {
 
 void ConnectionManager::stop_all() {
   for (auto c : connections_)
-    c->stop();
+	c->stop();
   connections_.clear();
 }
 

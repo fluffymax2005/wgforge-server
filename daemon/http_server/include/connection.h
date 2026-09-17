@@ -11,15 +11,14 @@
 #ifndef __WGFORGE_CONNECTION_H__
 #define __WGFORGE_CONNECTION_H__
 
+#include <array>
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
+#include <memory>
 
 #include "defines.h"
 #include "request_handler.h"
-
-#include <array>
-#include <memory>
 
 namespace WgForge {
 
@@ -27,39 +26,39 @@ class ConnectionManager;
 
 /// Represents a single Connection from a client.
 class Connection : public std::enable_shared_from_this<Connection> {
-public:
-  Connection(const Connection &) = delete;
-  Connection &operator=(const Connection &) = delete;
+  public:
+  Connection(const Connection&) = delete;
+  Connection& operator=(const Connection&) = delete;
 
-  /// Construct a Connection with the given socket.
-  explicit Connection(boost::asio::ip::tcp::socket socket,
-                      ConnectionManager &manager, RequestHandler &handler);
+    /// Construct a Connection with the given socket.
+  explicit Connection(boost::asio::ip::tcp::socket socket, ConnectionManager& manager,
+                      RequestHandler& handler);
 
-  /// Start the first asynchronous operation for the Connection.
+    /// Start the first asynchronous operation for the Connection.
   void start();
 
-  /// Stop all asynchronous operations associated with the Connection.
+    /// Stop all asynchronous operations associated with the Connection.
   void stop();
 
-private:
-  /// Perform an asynchronous read operation.
+  private:
+    /// Perform an asynchronous read operation.
   void do_read();
 
-  /// Perform an asynchronous write operation.
+    /// Perform an asynchronous write operation.
   void do_write();
 
-  /// Socket for the Connection.
+    /// Socket for the Connection.
   boost::asio::ip::tcp::socket socket_;
 
-  /// The manager for this Connection.
-  ConnectionManager &con_manager_;
+    /// The manager for this Connection.
+  ConnectionManager& con_manager_;
 
-  /// The handler used to process the incoming request.
-  RequestHandler &req_handler_;
+    /// The handler used to process the incoming request.
+  RequestHandler& req_handler_;
 
   beast::flat_buffer buffer_;
 
-  /// The incoming request.
+    /// The incoming request.
   http::request<beast::http::string_body> request_;
   http::response<beast::http::string_body> response_;
 };

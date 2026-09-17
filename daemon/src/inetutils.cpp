@@ -3,87 +3,86 @@
 #include <netlink/netlink.h>
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
+
 #include <unordered_set>
 
 namespace WgForge {
 
-void InetUtils::assignIpAddress(const InterfaceConfig &config) {
+void InetUtils::assignIpAddress(const InterfaceConfig& config) {
   std::string_view addr_view{config.addr};
   const auto slash_pos = addr_view.find_first_of('/');
   if (slash_pos != addr_view.find_last_of('/'))
-    throw std::invalid_argument("Invalid interface address CIDR provided");
+	throw std::invalid_argument("Invalid interface address CIDR provided");
 
   in_addr ipv4_addr;
-  char
-      ip_text_addr[sizeof(config.addr) - 5]{}; // not include [], :, port number
+  char ip_text_addr[sizeof(config.addr) - 5]{}; // not include [], :, port number
 
   std::strncpy(ip_text_addr, config.addr,
                slash_pos); // copy address
 
   if (inet_pton(AF_INET, ip_text_addr, &ipv4_addr) != 1)
-    throw std::invalid_argument("Invalid interface IP address provided");
+	throw std::invalid_argument("Invalid interface IP address provided");
 
-  nl_sock *sock = nl_socket_alloc();
+  nl_sock* sock = nl_socket_alloc();
   if (sock == nullptr)
-    throw std::runtime_error(
-        "Failed to allocate nl socket to configure interface");
+	throw std::runtime_error("Failed to allocate nl socket to configure interface");
 
   auto ec = nl_connect(sock, NETLINK_ROUTE);
   if (ec < 0) {
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to connect nl socket to kernel");
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to connect nl socket to kernel");
   }
 
-  nl_cache *cache;
+  nl_cache* cache;
   if ((ec = rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache)) < 0) {
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to allocate rtnl link cache");
+	nl_close(sock);
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to allocate rtnl link cache");
   }
 
-  rtnl_link *link = rtnl_link_get_by_name(cache, config.name);
+  rtnl_link* link = rtnl_link_get_by_name(cache, config.name);
   if (link == nullptr) {
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to get rtnl link");
+	nl_cache_free(cache);
+	nl_close(sock);
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to get rtnl link");
   }
 
-  rtnl_addr *addr = rtnl_addr_alloc();
+  rtnl_addr* addr = rtnl_addr_alloc();
   if (addr == nullptr) {
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to allocate rntl address");
+	rtnl_link_put(link);
+	nl_cache_free(cache);
+	nl_close(sock);
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to allocate rntl address");
   }
 
   rtnl_addr_set_ifindex(addr, rtnl_link_get_ifindex(link));
   rtnl_addr_set_family(addr, AF_INET);
 
-  nl_addr *local_addr = nl_addr_build(AF_INET, &ipv4_addr, sizeof(ipv4_addr));
+  nl_addr* local_addr = nl_addr_build(AF_INET, &ipv4_addr, sizeof(ipv4_addr));
   if (local_addr == nullptr) {
-    rtnl_addr_put(addr);
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to build network address");
+	rtnl_addr_put(addr);
+	rtnl_link_put(link);
+	nl_cache_free(cache);
+	nl_close(sock);
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to build network address");
   }
 
   rtnl_addr_set_local(addr, local_addr);
 
   int32_t prefix_len{};
   try {
-    prefix_len = std::stoi(addr_view.data() + slash_pos + 1);
+	prefix_len = std::stoi(addr_view.data() + slash_pos + 1);
   } catch (...) {
-    nl_addr_put(local_addr);
-    rtnl_addr_put(addr);
-    rtnl_link_put(link);
-    nl_cache_free(cache);
-    nl_close(sock);
-    nl_socket_free(sock);
-    throw std::runtime_error("Failed to convert prefix to int");
+	nl_addr_put(local_addr);
+	rtnl_addr_put(addr);
+	rtnl_link_put(link);
+	nl_cache_free(cache);
+	nl_close(sock);
+	nl_socket_free(sock);
+	throw std::runtime_error("Failed to convert prefix to int");
   }
   rtnl_addr_set_prefixlen(addr, prefix_len);
 
@@ -97,14 +96,13 @@ void InetUtils::assignIpAddress(const InterfaceConfig &config) {
   nl_socket_free(sock);
 
   if (ec < 0)
-    throw std::runtime_error("Failed to add interface address");
+	throw std::runtime_error("Failed to add interface address");
 }
 
 bool InetUtils::isPortFree(std::string_view ip, in_port_t port, bool isTCP) {
   auto sock = socket(AF_INET, isTCP ? SOCK_STREAM : SOCK_DGRAM, 0);
   if (sock < 0)
-    throw std::runtime_error(
-        "Failed to open socket to check port availability");
+	throw std::runtime_error("Failed to open socket to check port availability");
 
   // Create socket address to check
   sockaddr_in addr{};
@@ -113,44 +111,42 @@ bool InetUtils::isPortFree(std::string_view ip, in_port_t port, bool isTCP) {
   inet_pton(AF_INET, ip.data(), &addr.sin_addr);
 
   // Try bind address to socket
-  auto ec = bind(sock, reinterpret_cast<sockaddr *>(&addr), sizeof(addr));
+  auto ec = bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
   close(sock);
 
   // Check error codes
   if (ec == 0)
-    return true;
+	return true;
   if (errno == EADDRINUSE)
-    return false;
+	return false;
 
   // Other errors
-  throw std::runtime_error(
-      std::format("Failed to check port availability. Error code: {}", errno));
+  throw std::runtime_error(std::format("Failed to check port availability. Error code: {}", errno));
 }
 
 std::string InetUtils::findFreeLoopbackAddress(in_port_t port, bool isTCP) {
   char buf[INET_ADDRSTRLEN]{};
   for (uint16_t o2 = 0; o2 < 256; o2++) {
-    for (uint16_t o3 = 0; o3 < 256; o3++) {
-      for (uint16_t o4 = 1; o4 < 256; o4++) {
-        std::snprintf(buf, sizeof(buf), "127.%i.%i.%i", o2, o3, o4);
-        try {
-          if (isPortFree(buf, port, isTCP))
-            return buf;
-        } catch (...) {
-        }
-      }
-    }
+	for (uint16_t o3 = 0; o3 < 256; o3++) {
+	  for (uint16_t o4 = 1; o4 < 256; o4++) {
+		std::snprintf(buf, sizeof(buf), "127.%i.%i.%i", o2, o3, o4);
+		try {
+		  if (isPortFree(buf, port, isTCP))
+			return buf;
+		} catch (...) {
+		}
+	  }
+	}
   }
 
   return "";
 }
 
-std::string
-InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
-                                    const std::vector<std::string_view> cidrs) {
+std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
+                                                const std::vector<std::string_view> cidrs) {
   auto parsed = parseCIDR4Impl(gatewayCIDR);
   if (!parsed)
-    return "";
+	return "";
 
   auto [network, prefix] = *parsed;
   const uint32_t host_count = 1u << (32 - prefix);
@@ -158,17 +154,17 @@ InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
   const uint32_t last_host = first_host + host_count;
 
   std::unordered_set<uint32_t> used;
-  for (const auto &c : cidrs) {
-    auto p = parseCIDR4Impl(c);
-    if (!p)
-      continue;
-    used.insert(p->first);
+  for (const auto& c : cidrs) {
+	auto p = parseCIDR4Impl(c);
+	if (!p)
+	  continue;
+	used.insert(p->first);
   }
   used.insert(first_host);
 
   for (uint32_t ip = first_host + 1; ip < last_host; ip++) {
-    if (used.find(ip) == used.end())
-      return toCIDR4Impl(ip, prefix);
+	if (used.find(ip) == used.end())
+	  return toCIDR4Impl(ip, prefix);
   }
 
   return "";
@@ -182,27 +178,25 @@ static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
   return std::format("{}/{}", buf, prefix);
 }
 
-static std::optional<std::pair<uint32_t, uint8_t>>
-parseCIDR4Impl(std::string_view cidr) {
+static std::optional<std::pair<uint32_t, uint8_t>> parseCIDR4Impl(std::string_view cidr) {
   const auto slash_pos = cidr.find_first_of('/');
-  if (slash_pos == std::string_view::npos ||
-      slash_pos != cidr.find_last_of('/'))
-    return std::nullopt;
+  if (slash_pos == std::string_view::npos || slash_pos != cidr.find_last_of('/'))
+	return std::nullopt;
 
   std::string addr(cidr.substr(0, slash_pos));
   int prefix;
   try {
-    prefix = std::stoi(std::string(cidr.substr(slash_pos + 1)));
+	prefix = std::stoi(std::string(cidr.substr(slash_pos + 1)));
   } catch (...) {
-    return std::nullopt;
+	return std::nullopt;
   }
 
   if (prefix < 0 || prefix > 32)
-    return std::nullopt;
+	return std::nullopt;
 
   in_addr in;
   if (inet_pton(AF_INET, addr.c_str(), &in) != 1)
-    return std::nullopt;
+	return std::nullopt;
 
   uint32_t ip = ntohl(in.s_addr);
   uint32_t mask = prefix == 0 ? 0 : (0xFFFFFFFFu << (32 - prefix));

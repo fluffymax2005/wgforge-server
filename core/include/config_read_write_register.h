@@ -6,16 +6,15 @@
 
 namespace WgForge {
 
-class ConfigReadWriteRegister : public ConfigReadRegister,
-                                public ConfigWriteRegister {
-public:
+class ConfigReadWriteRegister : public ConfigReadRegister, public ConfigWriteRegister {
+  public:
   ConfigReadWriteRegister() = default;
 
-  ConfigReadWriteRegister(const ConfigReadWriteRegister &) = default;
-  ConfigReadWriteRegister &operator=(const ConfigReadWriteRegister &) = default;
+  ConfigReadWriteRegister(const ConfigReadWriteRegister&) = default;
+  ConfigReadWriteRegister& operator=(const ConfigReadWriteRegister&) = default;
 
-  ConfigReadWriteRegister(ConfigReadWriteRegister &&) = default;
-  ConfigReadWriteRegister &operator=(ConfigReadWriteRegister &&) = default;
+  ConfigReadWriteRegister(ConfigReadWriteRegister&&) = default;
+  ConfigReadWriteRegister& operator=(ConfigReadWriteRegister&&) = default;
 };
 
 } // namespace WgForge
