@@ -9,10 +9,6 @@
 #include <wgprivatekey.hpp>
 #include <wgpublickey.hpp>
 
-#ifndef __THREAD_SAFETY__
-  #define __THREAD_SAFETY__ MultiThreaded
-#endif
-
 namespace WgForge {
 
 SQLiteDbManager::SQLiteDbManager(std::string_view path, bool readonly) noexcept {
@@ -91,7 +87,6 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rawSql(std::string_view query
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::getPeer(std::string_view public_key,
                                                            PeerConfig& peer) const {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
   if (!isOpen())
 	return WGFORGE_CONNECTION_CLOSED;
   if (!WgKey::validateB64StringKey(public_key))
@@ -201,11 +196,7 @@ std::vector<PeerConfig> SQLiteDbManager::getAllPeers(SQLiteReturnCode* rc) const
 }
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& peer) noexcept {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
-  using WgPrivateKey = WgPrivateKey<__THREAD_SAFETY__>;
-  using WgPublicKey = WgPublicKey<__THREAD_SAFETY__>;
-
-    // Sequential checks
+  // Sequential checks
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
   if (!isOpen())
@@ -219,7 +210,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
       !WgKey::validateB64StringKey(peer.record.private_key.value()))
 	return WGFORGE_INVALID_ARGUMENT;
 
-    // Test whether given public key is made from private key
+  // Test whether given public key is made from private key
   if (peer.record.private_key.has_value()) {
 	WgPublicKey pbl_key(WgPrivateKey(peer.record.private_key.value()));
 	if (pbl_key != peer.record.public_key)
@@ -231,7 +222,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 
   std::lock_guard lock(mtx_);
 
-    // Begin transaction
+  // Begin transaction
   if ((rc = sqlite3_exec(db_.get(), "BEGIN TRANSACTION;", nullptr, nullptr, nullptr)) != SQLITE_OK)
 	return rc;
 
@@ -241,13 +232,13 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
     VALUES (?, ?, ?, ?, ?, ?)
   )";
 
-    // Prepare inserting peer
+  // Prepare inserting peer
   if ((rc = sqlite3_prepare_v2(db_.get(), INSERT_PEER, -1, &stmt, nullptr)) != SQLITE_OK) {
 	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	return rc;
   }
 
-    // Bind fields
+  // Bind fields
   uint8_t index = 1;
   sqlite3_bind_text(stmt, index++, peer.record.public_key.c_str(), -1, SQLITE_STATIC);
 
@@ -270,7 +261,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
   else
 	sqlite3_bind_null(stmt, index++);
 
-    // Make step to insert
+  // Make step to insert
   if ((rc = sqlite3_step(stmt)) != SQLITE_OK) {
 	sqlite3_finalize(stmt);
 	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
@@ -281,10 +272,10 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 
   sqlite3_finalize(stmt);
 
-    // Get inserted id
+  // Get inserted id
   auto peer_id = sqlite3_last_insert_rowid(db_.get());
 
-    // Insert AllowedIPs
+  // Insert AllowedIPs
   constexpr const char INSERT_ALLOWEDIPS[] = "INSERT INTO AllowedIPs (Peer_id, CIDR) VALUES (?, ?)";
   for (const auto& cidr : peer.allowed_ips) {
 	if ((rc = sqlite3_prepare_v2(db_.get(), INSERT_ALLOWEDIPS, -1, &stmt, nullptr)) != SQLITE_OK) {
@@ -311,14 +302,12 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::updatePeer(std::string_view public_key,
                                                               const PeerRecord& peer) noexcept {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
-
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
   if (!isOpen())
 	return WGFORGE_CONNECTION_CLOSED;
 
-    // Строим запрос с плейсхолдерами
+  // Строим запрос с плейсхолдерами
   std::string query = "UPDATE Peers SET Updated_at = CURRENT_TIMESTAMP";
 
   if (peer.preshared_key.has_value())
@@ -339,7 +328,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::updatePeer(std::string_view p
 
   uint8_t param_index = 1;
 
-    // Binding
+  // Binding
   if (peer.preshared_key.has_value())
 	sqlite3_bind_text(stmt, param_index++, peer.preshared_key->c_str(), -1, SQLITE_STATIC);
   if (peer.persistent_keepalive)
@@ -360,7 +349,6 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::updatePeer(std::string_view p
 
 std::vector<std::string> SQLiteDbManager::getAllowedIPs(std::string_view public_key,
                                                         SQLiteReturnCode* rc) const {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
   if (!isOpen()) {
 	if (rc)
 	  *rc = WGFORGE_CONNECTION_CLOSED;
@@ -413,8 +401,6 @@ std::vector<std::string> SQLiteDbManager::getAllowedIPs(std::string_view public_
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
     std::string_view public_key) noexcept {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
-
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
   if (!isOpen())
@@ -428,7 +414,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
   sqlite3_stmt* stmt;
   SQLiteReturnCode rc;
 
-    // 1. Get Peers Id
+  // 1. Get Peers Id
   constexpr const char GET_ID[] =
       "SELECT Id FROM Peers WHERE Public_key = ? AND Deleted_at IS NULL";
 
@@ -449,7 +435,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
   }
   sqlite3_finalize(stmt);
 
-    // 2. Delete all connected AllowedIPs
+  // 2. Delete all connected AllowedIPs
   constexpr const char UPDATE_ALLOWEDIPS[] = R"(
       UPDATE AllowedIPs SET Delete_at = CURRENT_TIMESTAMP
       WHERE Peer_id = ? AND Deleted_at IS NULL
@@ -464,7 +450,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
   sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 
-    // 3. Delete peer softly
+  // 3. Delete peer softly
   constexpr const char UPDATE_PEER[] = R"(
     UPDATE Peers SET Deleted_at = CURRENT_TIMESTAMP
     WHERE Id = ? AND Deleted_at IS NULL
@@ -479,7 +465,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
   sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 
-    // Commit changes
+  // Commit changes
   sqlite3_exec(db_.get(), "COMMIT;", nullptr, nullptr, nullptr);
 
   return SQLITE_OK;
@@ -487,22 +473,19 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view public_key,
                                                                 std::string_view cidr) {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
-  using WgAllowedIP = WgAllowedIP<__THREAD_SAFETY__>;
-
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
   if (!isOpen())
 	return WGFORGE_CONNECTION_CLOSED;
 
-    // Validate input data
+  // Validate input data
   if (!WgKey::validateB64StringKey(public_key) || !WgAllowedIP::validate(cidr.data()))
 	return WGFORGE_INVALID_ARGUMENT;
 
   sqlite3_stmt* stmt;
   SQLiteReturnCode rc;
 
-    // 1. Get peer's Id
+  // 1. Get peer's Id
   constexpr const char GET_ID[] =
       "SELECT Id FROM Peers WHERE Public_key = ? AND Deleted_at IS NULL";
   std::lock_guard lock(mtx_);
@@ -521,7 +504,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view
   }
   sqlite3_finalize(stmt);
 
-    // 2. Check whether such allowed ip for concrete peer exist or not
+  // 2. Check whether such allowed ip for concrete peer exist or not
   constexpr const char GET_ALLOWEDIP[] = R"(
     SELECT
         COUNT(Deleted_at) AS deleted,
@@ -550,8 +533,8 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view
   if (active_count)
 	return WGFORGE_ALLOWEDIP_EXIST;
 
-    // 3. If AllowedIP exists but "deleted" then recover it. Otherwise create new
-    // one
+  // 3. If AllowedIP exists but "deleted" then recover it. Otherwise create new
+  // one
   if (deleted_count) {
 	constexpr const char RECOVER_ALLOWEDIP[] = R"(
         UPDATE AllowedIPs
@@ -582,22 +565,19 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_view public_key,
                                                                    std::string_view cidr) {
-  using WgKey = WgKey<__THREAD_SAFETY__>;
-  using WgAllowedIP = WgAllowedIP<__THREAD_SAFETY__>;
-
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
   if (!isOpen())
 	return WGFORGE_CONNECTION_CLOSED;
 
-    // Validate input data
+  // Validate input data
   if (!WgKey::validateB64StringKey(public_key) || !WgAllowedIP::validate(cidr.data()))
 	return WGFORGE_INVALID_ARGUMENT;
 
   sqlite3_stmt* stmt;
   SQLiteReturnCode rc;
 
-    // 1. Get peer's Id
+  // 1. Get peer's Id
   constexpr const char GET_ID[] =
       "SELECT Id FROM Peers WHERE Public_key = ? AND Deleted_at IS NULL";
   std::lock_guard lock(mtx_);
@@ -616,7 +596,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_v
   }
   sqlite3_finalize(stmt);
 
-    // 2. Check whether allowed ip to "delete" exist
+  // 2. Check whether allowed ip to "delete" exist
   constexpr const char GET_ALLOWEDIP[] = R"(
     SELECT
         a.Id
@@ -642,7 +622,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_v
   }
   sqlite3_finalize(stmt);
 
-    // 3. "Delete" allowedip
+  // 3. "Delete" allowedip
   constexpr const char DELETE_ALLOWEDIP[] = R"(
     UPDATE AllowedIPs
         SET Deleted_at = CURRENT_TIMESTAMP,

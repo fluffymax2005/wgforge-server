@@ -4,6 +4,7 @@
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
 
+#include <format>
 #include <unordered_set>
 
 namespace WgForge {

@@ -17,11 +17,14 @@ add_library(${CORE_NAME} STATIC
     src/config_error_handler.cpp
     src/config_manager.cpp
     src/peer_config.cpp
+    src/subnetscanner.cpp
+    src/inetutils.cpp
 )
 
 target_include_directories(${CORE_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        /usr/include/libnl3/
 )
 
 target_link_libraries(${CORE_NAME}

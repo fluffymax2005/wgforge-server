@@ -1,7 +1,7 @@
 #ifndef __WGFORGE_INETUTILS_H__
 #define __WGFORGE_INETUTILS_H__
 
-#include "defines.h"
+#include "wgforge.h"
 
 namespace WgForge {
 
