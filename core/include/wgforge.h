@@ -1,8 +1,16 @@
 #ifndef __WGFORGE_H__
 #define __WGFORGE_H__
 
+#include <arpa/inet.h>
 #include <libeconf.h>
 #include <sqlite3.h>
+
+#include <wginterface.hpp>
+#include <wgprivatekey.hpp>
+
+#define __THREAD_SAFETY__ MultiThreaded
+
+namespace WgForge {
 
 // SQLiteDbManager
 
@@ -37,5 +45,34 @@
 
 #define WGFORGE_CONFIG_READER_NOT_FOUND     -300
 #define WGFORGE_CONFIG_INVALID_TYPE         -301
+
+// Typedefs
+
+using WgInterface = WgInterface<__THREAD_SAFETY__>;
+using WgPeer = WgPeer<__THREAD_SAFETY__>;
+using WgKey = WgKey<__THREAD_SAFETY__>;
+using WgPrivateKey = WgPrivateKey<__THREAD_SAFETY__>;
+using WgPublicKey = WgPublicKey<__THREAD_SAFETY__>;
+using WgPresharedKey = WgPresharedKey<__THREAD_SAFETY__>;
+using WgAllowedIP = WgAllowedIP<__THREAD_SAFETY__>;
+using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
+
+// Core structures
+
+struct InterfaceConfig {
+  char addr[INET6_ADDRSTRLEN + 7];  // [<ipv6_addr>]:<port> -> 1 + 39 + 1 + 1 + 3 + \0
+  WgPrivateKey private_key;
+  char name[IFNAMSIZ];
+  in_port_t listenPort;
+  Protocol proto_type;
+  bool checkSubnet;
+};
+
+struct ServerConfig {
+  char addr[INET6_ADDRSTRLEN];  // IPv6 has maximum 39 chars
+  in_port_t listenPort;
+};
+
+}  // namespace WgForge
 
 #endif
