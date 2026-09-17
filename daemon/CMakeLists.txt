@@ -23,16 +23,15 @@ add_executable(${PROJECT_NAME}
 
     http_server/src/connection.cpp
     http_server/src/connection_manager.cpp
-    http_server/src/handlers.cpp    
+    http_server/src/handlers.cpp
     http_server/src/request_handler.cpp
     http_server/src/wgforgeserver.cpp
 )
 
-target_include_directories(${PROJECT_NAME} 
+target_include_directories(${PROJECT_NAME}
     PRIVATE
     include/
     http_server/include/
-    #${CMAKE_SOURCE_DIR}/common/include
     /usr/include/libnl3/
 )
 
@@ -46,7 +45,7 @@ target_link_libraries(${PROJECT_NAME}
         econf
         nl-3
         nl-route-3
-        wgforge-common
+        wgforge-core
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)

@@ -1,4 +1,4 @@
-set(COMMON_NAME wgforge-common)
+set(CORE_NAME wgforge-core)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,7 +11,7 @@ find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
 find_package(SQLite3 REQUIRED)
 find_package(wgcpp REQUIRED)
 
-add_library(${COMMON_NAME} STATIC
+add_library(${CORE_NAME} STATIC
     src/sqlite_db_manager.cpp
     src/sqlite_error_handler.cpp
     src/config_error_handler.cpp
@@ -19,12 +19,12 @@ add_library(${COMMON_NAME} STATIC
     src/peer_config.cpp
 )
 
-target_include_directories(${COMMON_NAME}
+target_include_directories(${CORE_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(${COMMON_NAME}
+target_link_libraries(${CORE_NAME}
     PUBLIC
        SQLite3::SQLite3
        econf
