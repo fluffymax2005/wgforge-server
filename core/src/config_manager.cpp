@@ -28,6 +28,7 @@ void ConfigManager::registerDefaultWritersImpl() {
   rw_reg_.registerWriter<int>(LibeconfWriters::writeInt);
   rw_reg_.registerWriter<int64_t>(LibeconfWriters::writeInt64);
   rw_reg_.registerWriter<uint32_t>(LibeconfWriters::writeUInt);
+  rw_reg_.registerWriter<uint64_t>(LibeconfWriters::writeUInt64);
   rw_reg_.registerWriter<std::string>(LibeconfWriters::writeString);
   rw_reg_.registerWriter<float>(LibeconfWriters::writeFloat);
   rw_reg_.registerWriter<double>(LibeconfWriters::writeDouble);
@@ -73,13 +74,13 @@ ConfigManager::ConfigReturnCode ConfigManager::beginTransaction() noexcept {
   if (in_transaction_)
 	return WGFORGE_CONFIG_TRANSACTION_ACTIVE;
 
-    // Get config full path
+  // Get config full path
   char* raw_path = econf_getPath(cfg_.get());
   if (raw_path == nullptr)
 	return WGFORGE_CONFIG_NOMEM;
   std::unique_ptr<char, decltype(&free)> path_guard(raw_path, &free);
 
-    // Read file for copy
+  // Read file for copy
   econf_file* copy;
   econf_err ec = econf_readFile(&copy, raw_path, "=", "#");
   if (ec != ECONF_SUCCESS)
@@ -102,7 +103,7 @@ ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
   if (!in_transaction_)
 	return WGFORGE_CONFIG_TRANSACTION_INACTIVE;
 
-    // Get fullpath
+  // Get fullpath
   char* raw_path = econf_getPath(cfg_.get());
   if (raw_path == nullptr)
 	return WGFORGE_CONFIG_NOMEM;
@@ -111,7 +112,7 @@ ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
   fs::path path(raw_path);
   fs::path tmp_path = path.parent_path() / (path.filename().string() + ".tmp");
 
-    // Write into tmp file
+  // Write into tmp file
   econf_err ec =
       econf_writeFile(cfg_.get(), tmp_path.parent_path().c_str(), tmp_path.filename().c_str());
   if (ec != ECONF_SUCCESS)

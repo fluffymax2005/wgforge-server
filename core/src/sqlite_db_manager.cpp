@@ -47,7 +47,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::openConnection(std::string_vi
 	__closeConnectionUnsafe();
   sqlite3* db;
 
-  int flags = SQLITE_OPEN_FULLMUTEX;
+  int flags = SQLITE_OPEN_FULLMUTEX | SQLITE_OPEN_CREATE;
   if (readonly)
 	flags |= SQLITE_OPEN_READONLY;
   else
@@ -193,6 +193,45 @@ std::vector<PeerConfig> SQLiteDbManager::getAllPeers(SQLiteReturnCode* rc) const
   if (rc)
 	*rc = SQLITE_OK;
   return peers;
+}
+
+std::vector<std::string> SQLiteDbManager::getAllPeersAddresses(SQLiteReturnCode* rc) const {
+  if (!isOpen()) {
+	if (rc)
+	  *rc = WGFORGE_CONNECTION_CLOSED;
+	return {};
+  }
+
+  SQLiteReturnCode ec;
+  sqlite3_stmt* stmt;
+  constexpr const char QUERY[] =
+      R"(
+        SELECT 
+            p.CIDR
+         FROM Peers p
+         WHERE p.Deleted_at IS NULL
+      )";
+
+  {
+	std::lock_guard lock(mtx_);
+	if ((ec = sqlite3_prepare_v2(db_.get(), QUERY, -1, &stmt, nullptr)) != SQLITE_OK) {
+	  if (rc)
+		*rc = ec;
+	  return {};
+	}
+  }
+
+  const char* pstr;
+  std::vector<std::string> addresses;
+  while (sqlite3_step(stmt) == SQLITE_ROW) {
+	__convertText(&pstr, 0, stmt);
+	addresses.emplace_back(pstr);
+  }
+
+  sqlite3_finalize(stmt);
+  if (rc)
+	*rc = SQLITE_OK;
+  return addresses;
 }
 
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& peer) noexcept {

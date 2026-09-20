@@ -14,8 +14,8 @@ namespace LibeconfWriters {
 
 inline ConfigWriteRegister::WriteReturnCode writeBool(econf_file* config, std::string_view group,
                                                       std::string_view option, const bool& value) {
-  return econf_setBoolValue(config, group.data(), option.data(),
-                            reinterpret_cast<const char*>(&value));
+  const char* s = value ? "true" : "false";
+  return econf_setBoolValue(config, group.data(), option.data(), s);
 }
 
 inline ConfigWriteRegister::WriteReturnCode writeInt(econf_file* config, std::string_view group,

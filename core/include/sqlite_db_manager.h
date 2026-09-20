@@ -46,6 +46,7 @@ public:
   SQLiteReturnCode addPeer(const PeerConfig& peer) noexcept;
   SQLiteReturnCode updatePeer(std::string_view publiс_key, const PeerRecord& peer) noexcept;
   SQLiteReturnCode deletePeer(std::string_view public_key) noexcept;
+  std::vector<std::string> getAllPeersAddresses(SQLiteReturnCode* rc = nullptr) const;
 
   SQLiteReturnCode addAllowedIP(std::string_view public_key, std::string_view cidr);
   SQLiteReturnCode removeAllowedIP(std::string_view public_key, std::string_view cidr);

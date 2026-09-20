@@ -101,8 +101,11 @@ void ConfigManager::setReadWriteRegister(TRegister&& reg) {
 template<typename T>
 std::optional<T> ConfigManager::tryRead(std::string_view group, std::string_view option,
                                         ConfigReadRegister::ReadReturnCode* rc) const {
-  if (!isOpen())
-	return WGFORGE_CONFIG_CLOSED;
+  if (!isOpen()) {
+	if (rc)
+	  *rc = WGFORGE_CONFIG_CLOSED;
+	return std::nullopt;
+  }
 
   ConfigReadRegister::ReadReturnCode lrc = 0;
   std::lock_guard lock(mtx_);
@@ -116,7 +119,7 @@ std::optional<T> ConfigManager::tryRead(std::string_view group, std::string_view
 template<typename T>
 T ConfigManager::read(std::string_view group, std::string_view option) const {
   if (!isOpen())
-	return WGFORGE_CONFIG_CLOSED;
+	throw std::runtime_error("Config is not opened");
 
   return rw_reg_.read<T>(cfg_.get(), group, option);
 }

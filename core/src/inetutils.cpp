@@ -144,7 +144,7 @@ std::string InetUtils::findFreeLoopbackAddress(in_port_t port, bool isTCP) {
 }
 
 std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
-                                                const std::vector<std::string_view> cidrs) {
+                                                const std::vector<std::string_view>& cidrs) {
   auto parsed = parseCIDR4Impl(gatewayCIDR);
   if (!parsed)
 	return "";
@@ -171,7 +171,7 @@ std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
   return "";
 }
 
-static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
+std::string InetUtils::toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
   in_addr in;
   in.s_addr = ip_host;
   char buf[INET_ADDRSTRLEN];
@@ -179,7 +179,7 @@ static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
   return std::format("{}/{}", buf, prefix);
 }
 
-static std::optional<std::pair<uint32_t, uint8_t>> parseCIDR4Impl(std::string_view cidr) {
+std::optional<std::pair<uint32_t, uint8_t>> InetUtils::parseCIDR4Impl(std::string_view cidr) {
   const auto slash_pos = cidr.find_first_of('/');
   if (slash_pos == std::string_view::npos || slash_pos != cidr.find_last_of('/'))
 	return std::nullopt;

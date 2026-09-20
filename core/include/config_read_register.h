@@ -41,21 +41,22 @@ public:
   void removeReader();
 
   template<typename T>
-  T read(econf_file* config, std::string_view group, std::string_view option);
+  T read(econf_file* config, std::string_view group, std::string_view option) const;
 
   template<typename T>
-  T read(econf_file* config, std::string_view group, std::string_view option, ReadReturnCode& rc);
+  T read(econf_file* config, std::string_view group, std::string_view option,
+         ReadReturnCode& rc) const;
 
   template<typename T>
   std::optional<T> tryRead(econf_file* config, std::string_view group, std::string_view option,
-                           ReadReturnCode* rc = nullptr);
+                           ReadReturnCode* rc = nullptr) const;
 
 protected:
   std::unordered_map<std::type_index, UniversalReadFunc> readers_;
 
   template<typename T>
   T readWithCode(econf_file* config, std::string_view group, std::string_view option,
-                 ReadReturnCode& rc);
+                 ReadReturnCode& rc) const;
 };
 
 template<typename T>
@@ -75,7 +76,8 @@ void ConfigReadRegister::removeReader() {
 }
 
 template<typename T>
-T ConfigReadRegister::read(econf_file* config, std::string_view group, std::string_view option) {
+T ConfigReadRegister::read(econf_file* config, std::string_view group,
+                           std::string_view option) const {
   ReadReturnCode rc = 0;
   T result = readWithCode<T>(config, group, option, rc);
   if (rc)
@@ -85,13 +87,13 @@ T ConfigReadRegister::read(econf_file* config, std::string_view group, std::stri
 
 template<typename T>
 T ConfigReadRegister::read(econf_file* config, std::string_view group, std::string_view option,
-                           ReadReturnCode& rc) {
+                           ReadReturnCode& rc) const {
   return readWithCode<T>(config, group, option, rc);
 }
 
 template<typename T>
 std::optional<T> ConfigReadRegister::tryRead(econf_file* config, std::string_view group,
-                                             std::string_view option, ReadReturnCode* rc) {
+                                             std::string_view option, ReadReturnCode* rc) const {
   ReadReturnCode lrc;
   T result = readWithCode<T>(config, group, option, lrc);
 
@@ -106,7 +108,7 @@ std::optional<T> ConfigReadRegister::tryRead(econf_file* config, std::string_vie
 
 template<typename T>
 T ConfigReadRegister::readWithCode(econf_file* config, std::string_view group,
-                                   std::string_view option, ReadReturnCode& rc) {
+                                   std::string_view option, ReadReturnCode& rc) const {
   auto it = readers_.find(std::type_index(typeid(T)));
   if (it == readers_.end()) {
 	rc = WGFORGE_CONFIG_READER_NOT_FOUND;

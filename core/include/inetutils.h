@@ -17,7 +17,7 @@ public:
   static std::string findFreeLoopbackAddress(in_port_t port, bool isTCP = true);
 
   static std::string findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
-                                              const std::vector<std::string_view> cidrs);
+                                              const std::vector<std::string_view>& cidrs);
 
 private:
   static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix);
