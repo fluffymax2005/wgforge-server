@@ -8,8 +8,6 @@ PeerConfig::operator json::object() const& {
   o["public_key"] = record.public_key;
   if (record.preshared_key)
 	o["preshared_key"] = *record.preshared_key;
-  if (record.private_key)
-	o["private_key"] = *record.private_key;
   o["CIDR"] = record.cidr;
   o["persistent_keepalive"] = record.persistent_keepalive;
   if (record.description)
@@ -35,8 +33,6 @@ PeerConfig::operator json::object() && {
   o["public_key"] = std::move(record.public_key);
   if (record.preshared_key)
 	o["preshared_key"] = std::move(*record.preshared_key);
-  if (record.private_key)
-	o["private_key"] = std::move(*record.private_key);
   o["CIDR"] = std::move(record.cidr);
   o["persistent_keepalive"] = record.persistent_keepalive;
   if (record.description)

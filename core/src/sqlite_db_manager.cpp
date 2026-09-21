@@ -245,16 +245,6 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
   if (peer.record.preshared_key.has_value() &&
       !WgKey::validateB64StringKey(peer.record.preshared_key.value()))
 	return WGFORGE_INVALID_ARGUMENT;
-  if (peer.record.private_key.has_value() &&
-      !WgKey::validateB64StringKey(peer.record.private_key.value()))
-	return WGFORGE_INVALID_ARGUMENT;
-
-  // Test whether given public key is made from private key
-  if (peer.record.private_key.has_value()) {
-	WgPublicKey pbl_key(WgPrivateKey(peer.record.private_key.value()));
-	if (pbl_key != peer.record.public_key)
-	  return WGFORGE_INVALID_ARGUMENT;
-  }
 
   SQLiteReturnCode rc;
   sqlite3_stmt* stmt;
@@ -266,9 +256,9 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 	return rc;
 
   constexpr const char INSERT_PEER[] = R"(
-    INSERT INTO Peers (Public_key, Preshared_key, Private_key,
+    INSERT INTO Peers (Public_key, Preshared_key,
                        CIDR, Persistent_keepalive, Description)
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?)
   )";
 
   // Prepare inserting peer
@@ -283,11 +273,6 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 
   if (peer.record.preshared_key.has_value())
 	sqlite3_bind_text(stmt, index++, peer.record.preshared_key->c_str(), -1, SQLITE_STATIC);
-  else
-	sqlite3_bind_null(stmt, index++);
-
-  if (peer.record.private_key.has_value())
-	sqlite3_bind_text(stmt, index++, peer.record.private_key->c_str(), -1, SQLITE_STATIC);
   else
 	sqlite3_bind_null(stmt, index++);
 
@@ -699,10 +684,6 @@ PeerRecord SQLiteDbManager::__fillPeerRecord(sqlite3_stmt* stmt) const {
   __convertText(&pstr, index++, stmt);
   if (pstr && std::strlen(pstr))
 	peer.preshared_key = pstr;
-
-  __convertText(&pstr, index++, stmt);
-  if (pstr && std::strlen(pstr))
-	peer.private_key = pstr;
 
   __convertText(&pstr, index++, stmt);
   if (pstr && std::strlen(pstr))
