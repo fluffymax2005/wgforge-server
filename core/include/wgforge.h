@@ -60,7 +60,7 @@ using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
 // Core structures
 
 struct InterfaceConfig {
-  char addr[INET6_ADDRSTRLEN + 7];  // [<ipv6_addr>]:<port> -> 1 + 39 + 1 + 1 + 3 + \0
+  char addr[INET6_ADDRSTRLEN];
   WgPrivateKey private_key;
   char name[IFNAMSIZ];
   in_port_t listenPort;
