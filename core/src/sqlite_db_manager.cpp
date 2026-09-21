@@ -248,7 +248,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
   if (!WgKey::validateB64StringKey(new_public_key))
 	return WGFORGE_INVALID_ARGUMENT;
 
-  rawSql("BEGIN TRANSACTION;");
+  sqlite3_exec(db_.get(), "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
 
   SQLiteReturnCode rc;
   sqlite3_stmt* stmt;
@@ -266,7 +266,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
   sqlite3_finalize(stmt);
 
   if (peer_id < 0) {
-	rawSql("ROLLBACK;");
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	return WGFORGE_PEER_NOT_EXIST;
   }
 
@@ -280,7 +280,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
   sqlite3_finalize(stmt);
 
   if (taken) {
-	rawSql("ROLLBACK;");
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	return WGFORGE_PEER_EXIST;
   }
 
@@ -299,11 +299,11 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
   sqlite3_finalize(stmt);
 
   if (rc != SQLITE_DONE) {
-	rawSql("ROLLBACK;");
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	return WGFORGE_RUNTIME_ERROR;
   }
 
-  rawSql("COMMIT;");
+  sqlite3_exec(db_.get(), "COMMIT;", nullptr, nullptr, nullptr);
   return WGFORGE_DATABASE_OK;
 }
 
@@ -663,6 +663,106 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view
   return rc;
 }
 
+SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIPs(std::string_view public_key,
+                                                                 std::vector<std::string> cidrs) {
+  if (!isOpen())
+	return WGFORGE_CONNECTION_CLOSED;
+  if (!WgKey::validateB64StringKey(public_key))
+	return WGFORGE_INVALID_ARGUMENT;
+  std::lock_guard lock(mtx_);
+  if (readonly_)
+	return WGFORGE_DATABASE_READONLY;
+
+  for (const auto& cidr : cidrs)
+	if (!WgAllowedIP::validate(cidr.data()))
+	  return WGFORGE_INVALID_ARGUMENT;
+
+  sqlite3_exec(db_.get(), "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+  sqlite3_stmt* stmt;
+  SQLiteReturnCode rc;
+
+  // Get peer's id
+  constexpr const char GET_ID[] =
+      "SELECT Id FROM Peers WHERE Public_key = ? AND Deleted_at IS NULL";
+  if ((rc = sqlite3_prepare_v2(db_.get(), GET_ID, -1, &stmt, nullptr)) != SQLITE_OK) {
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	return rc;
+  }
+  sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC);
+
+  int64_t peer_id = -1;
+  if (sqlite3_step(stmt) == SQLITE_ROW)
+	peer_id = sqlite3_column_int64(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  if (peer_id < 0) {
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	return WGFORGE_PEER_NOT_EXIST;
+  }
+
+  // For every CIDR: recovery or insert
+  constexpr const char CHECK_ALLOWEDIP[] = R"(
+        SELECT
+            COUNT(CASE WHEN Deleted_at IS NULL THEN 1 END) AS active,
+            COUNT(CASE WHEN Deleted_at IS NOT NULL THEN 1 END) AS deleted
+        FROM AllowedIPs
+        WHERE Peer_id = ? AND CIDR = ?
+    )";
+
+  constexpr const char RECOVER_ALLOWEDIP[] = R"(
+        UPDATE AllowedIPs
+        SET Deleted_at = NULL, Updated_at = CURRENT_TIMESTAMP
+        WHERE Peer_id = ? AND CIDR = ? AND Deleted_at IS NOT NULL
+    )";
+
+  constexpr const char INSERT_ALLOWEDIP[] = "INSERT INTO AllowedIPs (Peer_id, CIDR) VALUES (?, ?)";
+
+  for (const auto& cidr : cidrs) {
+	// Validate state
+	if ((rc = sqlite3_prepare_v2(db_.get(), CHECK_ALLOWEDIP, -1, &stmt, nullptr)) != SQLITE_OK) {
+	  sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	  return rc;
+	}
+	uint8_t index = 1;
+	sqlite3_bind_int64(stmt, index++, peer_id);
+	sqlite3_bind_text(stmt, index++, cidr.data(), -1, SQLITE_STATIC);
+
+	int64_t active = 0, deleted = 0;
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+	  active = sqlite3_column_int64(stmt, 0);
+	  deleted = sqlite3_column_int64(stmt, 1);
+	}
+	sqlite3_finalize(stmt);
+
+	// If active then ignore
+	if (active > 0) {
+	  continue;
+	}
+
+	// 2.2 Recovery or insert
+	const char* query = deleted ? RECOVER_ALLOWEDIP : INSERT_ALLOWEDIP;
+	if ((rc = sqlite3_prepare_v2(db_.get(), query, -1, &stmt, nullptr)) != SQLITE_OK) {
+	  sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	  return rc;
+	}
+
+	index = 1;
+	sqlite3_bind_int64(stmt, index++, peer_id);
+	sqlite3_bind_text(stmt, index++, cidr.data(), -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+
+	if (rc != SQLITE_DONE) {
+	  sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	  return rc;
+	}
+  }
+
+  sqlite3_exec(db_.get(), "COMMIT;", nullptr, nullptr, nullptr);
+  return WGFORGE_DATABASE_OK;
+}
+
 SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_view public_key,
                                                                    std::string_view cidr) {
   if (!isOpen())
@@ -741,7 +841,69 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_v
   rc = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
 
-  return rc;
+  return WGFORGE_DATABASE_OK;
+}
+
+SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIPs(
+    std::string_view public_key, std::vector<std::string> cidrs) {
+  if (!isOpen())
+	return WGFORGE_CONNECTION_CLOSED;
+  if (!WgKey::validateB64StringKey(public_key))
+	return WGFORGE_INVALID_ARGUMENT;
+
+  std::lock_guard lock(mtx_);
+
+  sqlite3_exec(db_.get(), "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
+  SQLiteReturnCode rc;
+  sqlite3_stmt* stmt = nullptr;
+
+  // Get peer's id
+  constexpr const char GET_ID[] =
+      "SELECT Id FROM Peers WHERE Public_key = ? AND Deleted_at IS NULL";
+  if ((rc = sqlite3_prepare_v2(db_.get(), GET_ID, -1, &stmt, nullptr)) != SQLITE_OK) {
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	return rc;
+  }
+  uint8_t index = 1;
+  sqlite3_bind_text(stmt, index++, public_key.data(), -1, SQLITE_STATIC);
+
+  int64_t peer_id = -1;
+  if (sqlite3_step(stmt) == SQLITE_ROW)
+	peer_id = sqlite3_column_int64(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  if (peer_id < 0) {
+	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	return WGFORGE_PEER_NOT_EXIST;
+  }
+
+  // Soft-delete
+  constexpr const char DELETE_ALLOWEDIP[] = R"(
+        UPDATE AllowedIPs
+        SET Deleted_at = CURRENT_TIMESTAMP, Updated_at = CURRENT_TIMESTAMP
+        WHERE Peer_id = ? AND CIDR = ? AND Deleted_at IS NULL
+    )";
+
+  for (const auto& cidr : cidrs) {
+	if ((rc = sqlite3_prepare_v2(db_.get(), DELETE_ALLOWEDIP, -1, &stmt, nullptr)) != SQLITE_OK) {
+	  sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	  return rc;
+	}
+	sqlite3_bind_int64(stmt, 1, peer_id);
+	sqlite3_bind_text(stmt, 2, cidr.data(), -1, SQLITE_STATIC);
+
+	rc = sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+
+	if (rc != SQLITE_DONE) {
+	  sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
+	  return rc;
+	}
+  }
+
+  sqlite3_exec(db_.get(), "COMMIT;", nullptr, nullptr, nullptr);
+  return SQLITE_OK;
 }
 
 inline void SQLiteDbManager::__convertText(const char** pstr, int col,

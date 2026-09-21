@@ -51,7 +51,10 @@ public:
                                        std::string_view new_public_key);
 
   SQLiteReturnCode addAllowedIP(std::string_view public_key, std::string_view cidr);
+  SQLiteReturnCode addAllowedIPs(std::string_view public_key, std::vector<std::string> cidrs);
+
   SQLiteReturnCode removeAllowedIP(std::string_view public_key, std::string_view cidr);
+  SQLiteReturnCode removeAllowedIPs(std::string_view public_key, std::vector<std::string> cidrs);
   std::vector<std::string> getAllowedIPs(std::string_view public_key,
                                          SQLiteReturnCode* rc = nullptr) const;
 
