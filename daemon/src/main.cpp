@@ -61,8 +61,9 @@ int main(int argc, char* argv[]) {
 
 	const auto srvCfg = WgForge::get_server_config(config_manager);
 	const auto ifaceCfg = WgForge::get_iface_config(config_manager, argv[1]);
+	const auto wireguardCfg = WgForge::get_wireguard_config(config_manager);
 
-	WgForge::EndpointArgs args{iface, config_manager, db_manager, srvCfg, ifaceCfg};
+	WgForge::EndpointArgs args{iface, config_manager, db_manager, srvCfg, ifaceCfg, wireguardCfg};
 	WgForge::RequestHandler handler;
 	WgForge::setup_endpoints(args, handler);
 
@@ -71,7 +72,6 @@ int main(int argc, char* argv[]) {
 	// HTTP server
 	WgForge::WgForgeServer s = WgForge::setup_wgforgeserver(config_manager);
 	s.setHandler(std::move(handler));
-
 
 
 	WgForge::log_info("HTTP server is listening on ", srvCfg.addr, ':', srvCfg.listenPort);
