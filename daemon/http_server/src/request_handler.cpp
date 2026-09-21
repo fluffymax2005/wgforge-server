@@ -10,6 +10,7 @@
 
 #include "request_handler.h"
 
+#include <boost/url/impl/parse.hpp>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -22,7 +23,19 @@ void RequestHandler::add_route(http::verb method, const std::string& uri, Handle
 
 void RequestHandler::handle_request(const http::request<beast::http::string_body>& req,
                                     http::response<beast::http::string_body>& res) {
-  RouteKey key{req.method(), std::string(req.target())};
+  // Request path from possible query
+  auto r = boost::urls::parse_origin_form(req.target());
+  std::string path;
+  if (r) {
+	path = r->path();
+  } else {
+	path = std::string(req.target());
+	auto q = path.find('?');
+	if (q != std::string::npos)
+	  path.resize(q);
+  }
+
+  RouteKey key{req.method(), std::move(path)};
 
   auto handler = routes_.find(key);
   if (handler != routes_.end()) {
