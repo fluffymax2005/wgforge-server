@@ -24,16 +24,27 @@ namespace json = boost::json;
 using Request = const http::request<http::string_body>&;
 using Response = http::response<http::string_body>&;
 
+struct WireguardConfig {
+  char public_endpoint[INET_ADDRSTRLEN + 6]; // :<port_number>
+};
+
 struct EndpointArgs {
   WgInterface& iface;
   ConfigManager& config;
   SQLiteDbManager& db;
   const ServerConfig& server_cfg;
   const InterfaceConfig& iface_cfg;
+  const WireguardConfig& wireguard_cfg;
 
   EndpointArgs(WgInterface& iface, ConfigManager& cfg, SQLiteDbManager& db,
-               const ServerConfig& server_config, const InterfaceConfig& iface_config)
-      : iface(iface), config(cfg), db(db), server_cfg(server_config), iface_cfg(iface_config) {}
+               const ServerConfig& server_config, const InterfaceConfig& iface_config,
+               const WireguardConfig& wireguard_config)
+      : iface(iface)
+      , config(cfg)
+      , db(db)
+      , server_cfg(server_config)
+      , iface_cfg(iface_config)
+      , wireguard_cfg(wireguard_config) {}
 };
 
 

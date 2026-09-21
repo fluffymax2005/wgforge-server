@@ -44,6 +44,7 @@ target_link_libraries(${PROJECT_NAME}
         nl-3
         nl-route-3
         wgforge-core
+        curl
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
