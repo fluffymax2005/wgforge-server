@@ -1,6 +1,7 @@
 #include "initializer.h"
 
 #include <arpa/inet.h>
+#include <curl/curl.h>
 #include <libeconf.h>
 #include <sqlite3.h>
 
@@ -63,31 +64,31 @@ void setup_database(SQLiteDbManager& db) {
 }
 
 void setup_endpoints(EndpointArgs& args, RequestHandler& handler) {
-  handler.add_route(http::verb::get, "/interface", [&args](const auto& req, auto& res) {
-	WgForge::interface__get(req, res, args);
-  });
+  handler.add_route(http::verb::get, "/interface",
+                    [&](const auto& req, auto& res) { WgForge::interface__get(req, res, args); });
 
-  handler.add_route(http::verb::patch, "/interface", [&args](const auto& req, auto& res) {
-	WgForge::interface__patch(req, res, args);
-  });
+  handler.add_route(http::verb::patch, "/interface",
+                    [&](const auto& req, auto& res) { WgForge::interface__patch(req, res, args); });
 
   handler.add_route(http::verb::get, "/peers",
-                    [&args](const auto& req, auto& res) { WgForge::peers(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peers(req, res, args); });
 
   handler.add_route(http::verb::get, "/peer",
-                    [&args](const auto& req, auto& res) { WgForge::peer__get(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peer__get(req, res, args); });
 
   handler.add_route(http::verb::post, "/peer",
-                    [&args](const auto& req, auto& res) { WgForge::peer__post(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peer__post(req, res, args); });
 
   handler.add_route(http::verb::patch, "/peer",
-                    [&args](const auto& req, auto& res) { WgForge::peer__patch(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peer__patch(req, res, args); });
 
   handler.add_route(http::verb::delete_, "/peer",
-                    [&args](const auto& req, auto& res) { WgForge::peer__delete(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peer__delete(req, res, args); });
 
   handler.add_route(http::verb::get, "/peer/config",
-                    [&args](const auto& req, auto& res) { WgForge::peer_config(req, res, args); });
+                    [&](const auto& req, auto& res) { WgForge::peer_config(req, res, args); });
+  handler.add_route(http::verb::patch, "/peer/rotate",
+                    [&](const auto& req, auto& res) { WgForge::peer_rotate(req, res, args); });
 }
 
 WgForgeServer setup_wgforgeserver(const ConfigManager& config) {
@@ -137,7 +138,8 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 
 	// [Interface]
 	// ListenPort=51820
-	if ((rc = cfg.write<int>("Interface", "ListenPort", 51820)))
+	constexpr int LISTEN_PORT = 51820;
+	if ((rc = cfg.write<int>("Interface", "ListenPort", LISTEN_PORT)))
 	  return nullptr;
 
 	// [Interface]
@@ -152,6 +154,21 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	const auto iface_cidr = InetUtils::getGatewayCIDR(net_cidr);
 	if ((rc = cfg.write<std::string>("Interface", "Address", iface_cidr)))
 	  return nullptr;
+
+	// [Wireguard]
+	// PublicEndpoint=<public_endpoint_of_wireguard_server>
+	// By default <public_ip>:<wireguard_listen_port> by default
+	const auto server_public_ip_opt = __get_public_ip();
+	if (!server_public_ip_opt) {
+	  if ((rc = cfg.write<std::string_view>("Wireguard", "PublicEndpoint",
+	                                        std::format("<PublicIpAddress>:{}", LISTEN_PORT))))
+		return nullptr;
+	} else {
+	  if ((rc = cfg.write<std::string_view>(
+	           "Wireguard", "PublicEndpoint",
+	           std::format("{}:{}", *server_public_ip_opt, LISTEN_PORT))))
+		return nullptr;
+	}
 
 	// [Interface]
 	// CheckSubnet=<true_or_false>
@@ -243,7 +260,7 @@ ServerConfig get_server_config(const ConfigManager& config) {
   if (auto opt = config.tryRead<std::string>("Server", "Address", &rc)) {
 	char buf[sizeof(in_addr)];
 	if (inet_pton(AF_INET, opt->c_str(), buf) != 1)
-	  throw std::invalid_argument("Incorrect \"Address\" provided for [Server]");
+	  throw std::invalid_argument("Invalid \"Address\" provided for [Server]");
 	std::strcpy(srvCfg.addr, opt->c_str());
   } else {
 	throw std::runtime_error(ConfigErrorHandler::readToString(rc, "Server", "Address"));
@@ -256,9 +273,48 @@ ServerConfig get_server_config(const ConfigManager& config) {
 
   if (srvCfg.listenPort < 0 ||
       srvCfg.listenPort > std::numeric_limits<decltype(ServerConfig::listenPort)>::max())
-	throw std::runtime_error("Invalid listen port number provided for Wireguard interface");
+	throw std::runtime_error("\"ListenPort\" out of range for [Server]");
 
   return srvCfg;
+}
+
+WireguardConfig get_wireguard_config(const ConfigManager& config) {
+  WireguardConfig wireguardCfg;
+  ConfigReadRegister::ReadReturnCode rc;
+  if (auto opt = config.tryRead<std::string>("Wireguard", "PublicEndpoint", &rc)) {
+	if (!WgEndpoint::validate(*opt))
+	  throw std::runtime_error("Invalid \"PublicEndpoint\" in [Wireguard]");
+	std::sprintf(wireguardCfg.public_endpoint, "%s", opt->c_str());
+  } else {
+	throw std::runtime_error(ConfigErrorHandler::readToString(rc, "Wireguard", "PublicEndpoint"));
+  }
+
+  return wireguardCfg;
+}
+
+static std::optional<std::string> __get_public_ip() {
+  CURL* curl = curl_easy_init();
+  if (curl == nullptr)
+	return std::nullopt;
+  std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> pcurl(curl, &curl_easy_cleanup);
+
+  std::string ip(64, '\0');
+
+  curl_easy_setopt(pcurl.get(), CURLOPT_URL, "https://api.ipify.org");
+  curl_easy_setopt(pcurl.get(), CURLOPT_WRITEFUNCTION,
+                   [](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+	                 auto* s = static_cast<std::string*>(userdata);
+	                 s->assign(ptr, size * nmemb);
+	                 return size * nmemb;
+                   });
+  curl_easy_setopt(pcurl.get(), CURLOPT_WRITEDATA, &ip);
+  curl_easy_setopt(pcurl.get(), CURLOPT_TIMEOUT, 5L);
+  curl_easy_setopt(pcurl.get(), CURLOPT_USERAGENT, "wgforge/1.0");
+
+  CURLcode rc = curl_easy_perform(pcurl.get());
+  if (rc != CURLE_OK)
+	return std::nullopt;
+  return ip;
 }
 
 } // namespace WgForge

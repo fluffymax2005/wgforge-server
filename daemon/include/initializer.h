@@ -28,10 +28,14 @@ WgForgeServer setup_wgforgeserver(const ConfigManager& config);
 
 InterfaceConfig get_iface_config(const ConfigManager& config, const char name[]);
 ServerConfig get_server_config(const ConfigManager& config);
+WireguardConfig get_wireguard_config(const ConfigManager& config);
 
 // Create config both for interface and http server. Implies lack of
 // /usr/wgorge/<wg_interface_name>.conf
 econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode& rc) noexcept;
+
+static std::optional<std::string> __get_public_ip();
+
 } // namespace WgForge
 
 #endif // __WGFORGE_EXECUTION_INITIALIZER_H__
