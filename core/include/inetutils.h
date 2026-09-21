@@ -17,13 +17,14 @@ public:
   static std::string findFreeLoopbackAddress(in_port_t port, bool isTCP = true);
 
   static std::string findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
-                                              const std::vector<std::string_view>& cidrs);
+                                              const std::vector<std::string>& cidrs);
 
   static std::string getGatewayCIDR(std::string_view net_cidr);
 
 private:
   static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix);
-  static std::optional<std::pair<uint32_t, uint8_t>> parseCIDR4Impl(std::string_view cidr);
+  static std::optional<std::tuple<uint32_t, uint32_t, uint8_t>> parseCIDR4Impl(
+      std::string_view cidr);
 };
 
 }  // namespace WgForge

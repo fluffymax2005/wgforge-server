@@ -188,12 +188,12 @@ std::string InetUtils::getGatewayCIDR(std::string_view net_cidr) {
 }
 
 std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
-                                                const std::vector<std::string_view>& cidrs) {
+                                                const std::vector<std::string>& cidrs) {
   auto parsed = parseCIDR4Impl(gatewayCIDR);
   if (!parsed)
 	return "";
 
-  auto [network, prefix] = *parsed;
+  auto [ip, network, prefix] = *parsed;
   const uint32_t host_count =
       (1u << (32 - prefix)) - 3; // subnet, getway and broadcast addressed are not included
   const uint32_t first_host = network + 1;
@@ -204,7 +204,7 @@ std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
 	auto p = parseCIDR4Impl(c);
 	if (!p)
 	  continue;
-	used.insert(p->first);
+	used.insert(std::get<0>(*p));
   }
   used.insert(first_host);
 
@@ -224,7 +224,8 @@ std::string InetUtils::toCIDR4Impl(uint32_t ip_host, uint8_t prefix) {
   return std::format("{}/{}", buf, prefix);
 }
 
-std::optional<std::pair<uint32_t, uint8_t>> InetUtils::parseCIDR4Impl(std::string_view cidr) {
+std::optional<std::tuple<uint32_t, uint32_t, uint8_t>> InetUtils::parseCIDR4Impl(
+    std::string_view cidr) {
   const auto slash_pos = cidr.find_first_of('/');
   if (slash_pos == std::string_view::npos || slash_pos != cidr.find_last_of('/'))
 	return std::nullopt;
@@ -248,7 +249,7 @@ std::optional<std::pair<uint32_t, uint8_t>> InetUtils::parseCIDR4Impl(std::strin
   uint32_t mask = prefix == 0 ? 0 : (0xFFFFFFFFu << (32 - prefix));
   uint32_t network = ip & mask;
 
-  return std::make_pair(network, static_cast<uint8_t>(prefix));
+  return std::make_tuple(ip, network, static_cast<uint8_t>(prefix));
 }
 
 } // namespace WgForge
