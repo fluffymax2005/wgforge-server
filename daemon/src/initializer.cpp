@@ -21,15 +21,15 @@ namespace WgForge {
 void setup_database(SQLiteDbManager& db) {
   // SQL queries
   constexpr const char CREATE_PEERS[] = R"(
+    BEGIN TRANSACTION;
     CREATE TABLE IF NOT EXISTS Peers (
         Id INTEGER PRIMARY KEY AUTOINCREMENT,
         Public_key TEXT UNIQUE NOT NULL CHECK(length(Public_key) = 44),
         Preshared_key TEXT CHECK(length(Preshared_key) = 44),
-        Private_key TEXT CHECK(length(Private_key) = 44),
         CIDR TEXT,
         Persistent_keepalive INTEGER CHECK(Persistent_keepalive BETWEEN 1 AND 65535),
         Description VARCHAR(25),
-        Created_at DATETIME DEFAULT CURRENT_STAMP,
+        Created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         Updated_at DATETIME,
         Deleted_at DATETIME
     );
@@ -40,21 +40,26 @@ void setup_database(SQLiteDbManager& db) {
         Id INTEGER PRIMARY KEY AUTOINCREMENT,
         Peer_id INTEGER NOT NULL,
         CIDR TEXT NOT NULL,
-        Created_at DATETIME DEFAULT CURRENT_STAMP,
+        Created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         Deleted_at DATETIME,
         FOREIGN KEY (Peer_id) REFERENCES Peers(Id) ON DELETE CASCADE
+    COMMIT;
     );
   )";
 
   // Making requests
   SQLiteDbManager::SQLiteReturnCode rc = db.rawSql(CREATE_PEERS);
-  if (rc)
+  if (rc) {
+	db.rawSql("ROLLBACK;");
 	throw std::runtime_error(
 	    std::format("Failed to create Peers table. {}", SQLiteErrorHandler::toString(rc)));
+  }
 
-  if ((rc = db.rawSql(CREATE_ALLOWEDIPS)))
+  if ((rc = db.rawSql(CREATE_ALLOWEDIPS))) {
+	db.rawSql("ROLLBACK;");
 	throw std::runtime_error(
 	    std::format("Failed to create AllowedIPs table. {}", SQLiteErrorHandler::toString(rc)));
+  }
 }
 
 void setup_endpoints(EndpointArgs& args, RequestHandler& handler) {
@@ -123,7 +128,7 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 
   try {
 	ConfigReadWriteRegister rw_reg;
-	rw_reg.registerWriter<int32_t>(LibeconfWriters::writeInt);
+	rw_reg.registerWriter<int>(LibeconfWriters::writeInt);
 	rw_reg.registerWriter<std::string>(LibeconfWriters::writeString);
 	rw_reg.registerWriter<bool>(LibeconfWriters::writeBool);
 
@@ -137,15 +142,15 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 
 	// [Interface]
 	// PrivateKey=<private_key>
-	char buf[128];
-	wg_key_to_base64(buf, WgPrivateKey{}.data());
-	if ((rc = cfg.write<std::string>("Interface", "PrivateKey", buf)))
+	const std::string private_key = WgPrivateKey().toB64String();
+	if ((rc = cfg.write<std::string>("Interface", "PrivateKey", private_key)))
 	  return nullptr;
 
 	// [Interface]
 	// Address=<cidr> Default suffix = 24
-	const auto iface_address = SubnetScanner::findFreeSubnet(24);
-	if ((rc = cfg.write<std::string>("Interface", "Address", iface_address)))
+	const auto net_cidr = SubnetScanner::findFreeSubnet(24);
+	const auto iface_cidr = InetUtils::getGatewayCIDR(net_cidr);
+	if ((rc = cfg.write<std::string>("Interface", "Address", iface_cidr)))
 	  return nullptr;
 
 	// [Interface]
@@ -167,6 +172,7 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	  return nullptr;
 
 	// Write file
+	char buf[128];
 	const auto iface_start_index = path.find_last_of('/');
 	path.copy(buf, iface_start_index);
 	buf[iface_start_index] = '\0'; // directory path
@@ -193,7 +199,7 @@ InterfaceConfig get_iface_config(const ConfigManager& config, const char name[])
 
   // ListenPort
   ConfigReadRegister::ReadReturnCode rc;
-  if (auto opt = config.tryRead<int32_t>("Interface", "ListenPort", &rc))
+  if (auto opt = config.tryRead<int>("Interface", "ListenPort", &rc))
 	ifaceCfg.listenPort = opt.value();
   else
 	throw std::runtime_error(ConfigErrorHandler::readToString(rc, "Interface", "ListenPort"));
