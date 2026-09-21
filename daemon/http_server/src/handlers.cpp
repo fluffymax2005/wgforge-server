@@ -253,7 +253,7 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
 
   try {
 	const auto& target = req.target();
-	auto r = boost::urls::parse_uri(target);
+	auto r = boost::urls::parse_origin_form(target);
 	if (!r.has_value()) {
 	  throw EndpointInvalidArgument(
 	      "Failed to parse request. Check whether "
@@ -266,7 +266,7 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
 	if (key_it == params.end())
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
-	auto public_key = key_it->value;
+	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key)) {
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 	}
@@ -323,6 +323,7 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
   auto& iface = args.iface;
   auto& db = args.db;
   auto& cfg = args.config;
+  const auto& iface_cfg = args.iface_cfg;
   PeerConfig config;
 
   try {
@@ -367,18 +368,12 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
 	}
 
 	// Get CIDRs
-	ConfigManager::ConfigReturnCode cfg_rc;
-	const auto ifaceCIDR = cfg.tryRead<std::string>("Interface", "Address", &cfg_rc);
-	if (cfg_rc)
-	  throw EndpointRuntimeError(ConfigErrorHandler::toString(cfg_rc));
-
 	SQLiteDbManager::SQLiteReturnCode db_rc;
 	auto cidrs = db.getAllPeersAddresses(&db_rc);
 	if (db_rc)
 	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(db_rc));
 
-	const auto cidr = InetUtils::findFreeClientTunnelCIDR(
-	    ifaceCIDR->c_str(), std::vector<std::string_view>(cidrs.begin(), cidrs.end()));
+	const auto cidr = InetUtils::findFreeClientTunnelCIDR(iface_cfg.addr, cidrs);
 	if (cidr.length() == 0)
 	  throw EndpointInvalidArgument("Out of interface capacity");
 	config.record.cidr = std::move(cidr);
@@ -460,7 +455,7 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 
   try {
 	const auto& target = req.target();
-	auto r = boost::urls::parse_uri(target);
+	auto r = boost::urls::parse_origin_form(target);
 	if (!r.has_value()) {
 	  throw EndpointInvalidArgument(
 	      "Failed to parse request. Check whether "
@@ -472,13 +467,15 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 	auto old_key_it = params.find("oldPublicKey");
 	if (old_key_it == params.end())
 	  throw EndpointInvalidArgument("\"oldPublicKey\" not provided");
-	if (!WgKey::validateB64StringKey(old_key_it->value.data()))
+	std::string old_key = boost::urls::decode(old_key_it->value).value();
+	if (!WgKey::validateB64StringKey(old_key.c_str()))
 	  throw EndpointInvalidArgument("\"oldPublicKey\" is invalid");
 
 	auto new_key_it = params.find("newPublickey");
 	if (new_key_it == params.end())
 	  throw EndpointInvalidArgument("\"newPublicKey\" not provided");
-	if (!WgKey::validateB64StringKey(new_key_it->value.data()))
+	std::string new_key = boost::urls::decode(new_key_it->value).value();
+	if (!WgKey::validateB64StringKey(new_key.c_str()))
 	  throw EndpointInvalidArgument("\"newPublicKey\" is invalid");
 
 
@@ -539,7 +536,7 @@ void peer__delete(Request req, Response res, EndpointArgs& args) {
 
   try {
 	const auto& target = req.target();
-	auto r = boost::urls::parse_uri(target);
+	auto r = boost::urls::parse_origin_form(target);
 	if (!r.has_value()) {
 	  throw EndpointInvalidArgument(
 	      "Failed to parse request. Check whether "
@@ -552,18 +549,18 @@ void peer__delete(Request req, Response res, EndpointArgs& args) {
 	if (key_it == params.end())
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
-	auto public_key = key_it->value;
+	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key->data())))
+	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key.c_str())))
 	  throw EndpointInvalidArgument("Peer does not exist");
 
-	auto rc = db.deletePeer(public_key->data());
+	auto rc = db.deletePeer(public_key.c_str());
 	if (rc)
 	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
 
-	iface.removePeer(WgPublicKey{public_key->data()});
+	iface.removePeer(WgPublicKey{public_key.c_str()});
 
 	res.result(http::status::no_content);
   } catch (const EndpointInvalidArgument& e) {
@@ -594,7 +591,7 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 
   try {
 	const auto& target = req.target();
-	auto r = boost::urls::parse_uri(target);
+	auto r = boost::urls::parse_origin_form(target);
 	if (!r.has_value()) {
 	  throw EndpointInvalidArgument(
 	      "Failed to parse request. Check whether "
@@ -607,7 +604,7 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 	if (key_it == params.end())
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
-	auto public_key = key_it->value;
+	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 
@@ -735,7 +732,7 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
 
   try {
 	const auto& target = req.target();
-	auto r = boost::urls::parse_uri(target);
+	auto r = boost::urls::parse_origin_form(target);
 	if (!r.has_value()) {
 	  throw EndpointInvalidArgument(
 	      "Failed to parse request. Check whether "
@@ -748,7 +745,7 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
 	if (key_it == params.end())
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
-	auto public_key = key_it->value;
+	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 
