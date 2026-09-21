@@ -301,7 +301,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addPeer(const PeerConfig& pee
 	sqlite3_bind_null(stmt, index++);
 
   // Make step to insert
-  if ((rc = sqlite3_step(stmt)) != SQLITE_OK) {
+  if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
 	sqlite3_finalize(stmt);
 	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	if (rc == SQLITE_CONSTRAINT_UNIQUE)
@@ -688,34 +688,38 @@ inline void SQLiteDbManager::__convertText(const char** pstr, int col,
 
 PeerRecord SQLiteDbManager::__fillPeerRecord(sqlite3_stmt* stmt) const {
   PeerRecord peer;
-  peer.id = sqlite3_column_int64(stmt, 0);
+  uint8_t index = 0;
+  peer.id = sqlite3_column_int64(stmt, index++);
 
-  uint8_t index = 1;
   const char* pstr;
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
 	peer.public_key = pstr;
 
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
+	peer.preshared_key = pstr;
+
+  __convertText(&pstr, index++, stmt);
+  if (pstr && std::strlen(pstr))
 	peer.private_key = pstr;
 
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
 	peer.cidr = pstr;
 
   peer.persistent_keepalive = sqlite3_column_int(stmt, index++);
 
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
 	peer.description = pstr;
 
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
 	peer.created_at = pstr;
 
   __convertText(&pstr, index++, stmt);
-  if (std::strlen(pstr))
+  if (pstr && std::strlen(pstr))
 	peer.updated_at = pstr;
 
   return peer;

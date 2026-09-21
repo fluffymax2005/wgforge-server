@@ -20,6 +20,7 @@ public:
 
   static std::optional<bool> isSubnetFree(std::string_view cidr, float timeout_seconds = 1);
   static std::string findFreeSubnet(uint8_t suffix, float timeout_seconds = 1);
+  static std::string getGatewayCIDR(std::string_view net_cidr);
 
 private:
   static unsigned short checksum(void* b, int len);
