@@ -11,6 +11,7 @@
 #include "initializer.h"
 #include "request_handler.h"
 #include "sqlite_db_manager.h"
+#include "sqlite_error_handler.h"
 #include "wgforgeserver.h"
 
 // Create phony config for tests
@@ -21,7 +22,7 @@ int main(int argc, char* argv[]) {
   if (argc != 2) {
 	std::cerr << "Usage: wgforgeserver <interface_name>\n";
 	std::cerr << "  For example, try:\n";
-	std::cerr << "    wgforgeserver wg0\n";
+	std::cerr << "   " << argv[0] << " wg0\n";
 	return 1;
   }
 
@@ -49,11 +50,19 @@ int main(int argc, char* argv[]) {
 
 	// SQLite3 DB
 	const std::string db_path(std::format("/var/lib/wgforge/{}.sqlite", argv[1]));
-	WgForge::SQLiteDbManager db_manager(db_path, false);
+
+	WgForge::SQLiteDbManager db_manager;
+	WgForge::SQLiteDbManager::SQLiteReturnCode db_rc = db_manager.openConnection(db_path, false);
+
+	WgForge::SQLiteErrorHandler::throwIfError(db_rc);
+	WgForge::setup_database(db_manager);
 
 	WgForge::log_info("Configuring HTTP server endpoints");
 
-	WgForge::EndpointArgs args{iface, config_manager, db_manager};
+	const auto srvCfg = WgForge::get_server_config(config_manager);
+	const auto ifaceCfg = WgForge::get_iface_config(config_manager, argv[1]);
+
+	WgForge::EndpointArgs args{iface, config_manager, db_manager, srvCfg, ifaceCfg};
 	WgForge::RequestHandler handler;
 	WgForge::setup_endpoints(args, handler);
 
@@ -63,8 +72,7 @@ int main(int argc, char* argv[]) {
 	WgForge::WgForgeServer s = WgForge::setup_wgforgeserver(config_manager);
 	s.setHandler(std::move(handler));
 
-	const auto srvCfg = WgForge::get_server_config(config_manager);
-	const auto ifaceCfg = WgForge::get_iface_config(config_manager, argv[1]);
+
 
 	WgForge::log_info("HTTP server is listening on ", srvCfg.addr, ':', srvCfg.listenPort);
 	WgForge::log_info("Wireguard VPN tunnel is listening on 0.0.0.0:", ifaceCfg.listenPort,

@@ -28,9 +28,12 @@ struct EndpointArgs {
   WgInterface& iface;
   ConfigManager& config;
   SQLiteDbManager& db;
+  const ServerConfig& server_cfg;
+  const InterfaceConfig& iface_cfg;
 
-  EndpointArgs(WgInterface& iface, ConfigManager& cfg, SQLiteDbManager& db)
-      : iface(iface), config(cfg), db(db) {}
+  EndpointArgs(WgInterface& iface, ConfigManager& cfg, SQLiteDbManager& db,
+               const ServerConfig& server_config, const InterfaceConfig& iface_config)
+      : iface(iface), config(cfg), db(db), server_cfg(server_config), iface_cfg(iface_config) {}
 };
 
 
