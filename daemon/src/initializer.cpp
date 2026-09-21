@@ -44,8 +44,8 @@ void setup_database(SQLiteDbManager& db) {
         Created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         Deleted_at DATETIME,
         FOREIGN KEY (Peer_id) REFERENCES Peers(Id) ON DELETE CASCADE
-    COMMIT;
     );
+    COMMIT;
   )";
 
   // Making requests
@@ -155,21 +155,6 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	if ((rc = cfg.write<std::string>("Interface", "Address", iface_cidr)))
 	  return nullptr;
 
-	// [Wireguard]
-	// PublicEndpoint=<public_endpoint_of_wireguard_server>
-	// By default <public_ip>:<wireguard_listen_port> by default
-	const auto server_public_ip_opt = __get_public_ip();
-	if (!server_public_ip_opt) {
-	  if ((rc = cfg.write<std::string_view>("Wireguard", "PublicEndpoint",
-	                                        std::format("<PublicIpAddress>:{}", LISTEN_PORT))))
-		return nullptr;
-	} else {
-	  if ((rc = cfg.write<std::string_view>(
-	           "Wireguard", "PublicEndpoint",
-	           std::format("{}:{}", *server_public_ip_opt, LISTEN_PORT))))
-		return nullptr;
-	}
-
 	// [Interface]
 	// CheckSubnet=<true_or_false>
 	// Should programm check subnet for WgInterface before start?
@@ -187,6 +172,20 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	// ListenPort=51819
 	if ((rc = cfg.write<int>("Server", "ListenPort", 51819)))
 	  return nullptr;
+
+	// [Wireguard]
+	// PublicEndpoint=<public_endpoint_of_wireguard_server>
+	// By default <public_ip>:<wireguard_listen_port> by default
+	const auto server_public_ip_opt = __get_public_ip();
+	if (!server_public_ip_opt) {
+	  if ((rc = cfg.write<std::string>("Wireguard", "PublicEndpoint",
+	                                   std::format("<PublicIpAddress>:{}", LISTEN_PORT))))
+		return nullptr;
+	} else {
+	  if ((rc = cfg.write<std::string>("Wireguard", "PublicEndpoint",
+	                                   std::format("{}:{}", *server_public_ip_opt, LISTEN_PORT))))
+		return nullptr;
+	}
 
 	// Write file
 	char buf[128];
@@ -298,15 +297,16 @@ static std::optional<std::string> __get_public_ip() {
 	return std::nullopt;
   std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> pcurl(curl, &curl_easy_cleanup);
 
-  std::string ip(64, '\0');
+  std::string ip;
 
   curl_easy_setopt(pcurl.get(), CURLOPT_URL, "https://api.ipify.org");
-  curl_easy_setopt(pcurl.get(), CURLOPT_WRITEFUNCTION,
-                   [](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
-	                 auto* s = static_cast<std::string*>(userdata);
-	                 s->assign(ptr, size * nmemb);
-	                 return size * nmemb;
-                   });
+  curl_easy_setopt(
+      pcurl.get(), CURLOPT_WRITEFUNCTION,
+      +[](char* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+	    auto* s = static_cast<std::string*>(userdata);
+	    s->append(ptr, size * nmemb);
+	    return size * nmemb;
+      });
   curl_easy_setopt(pcurl.get(), CURLOPT_WRITEDATA, &ip);
   curl_easy_setopt(pcurl.get(), CURLOPT_TIMEOUT, 5L);
   curl_easy_setopt(pcurl.get(), CURLOPT_USERAGENT, "wgforge/1.0");
