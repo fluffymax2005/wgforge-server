@@ -35,7 +35,7 @@ std::optional<T> get_optional_field(const json::object& j, std::string_view key,
 	return std::nullopt;
   } else if constexpr (std::is_same_v<T, std::uint64_t>) {
 	if (mandatory) {
-	  if (val->as_uint64())
+	  if (val->is_uint64())
 		return val->as_uint64();
 	  else
 		throw EndpointInvalidArgument(std::format("\"{}\" must be a unsigned integer", key));
