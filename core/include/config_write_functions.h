@@ -59,6 +59,13 @@ inline ConfigWriteRegister::WriteReturnCode writeString(econf_file* config, std:
   return econf_setStringValue(config, group.data(), option.data(), value.c_str());
 }
 
+inline ConfigWriteRegister::WriteReturnCode writeStringView(econf_file* config,
+                                                            std::string_view group,
+                                                            std::string_view option,
+                                                            const std::string_view& value) {
+  return econf_setStringValue(config, group.data(), option.data(), value.data());
+}
+
 } // namespace LibeconfWriters
 } // namespace WgForge
 

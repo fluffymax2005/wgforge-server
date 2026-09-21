@@ -30,6 +30,7 @@ void ConfigManager::registerDefaultWritersImpl() {
   rw_reg_.registerWriter<uint32_t>(LibeconfWriters::writeUInt);
   rw_reg_.registerWriter<uint64_t>(LibeconfWriters::writeUInt64);
   rw_reg_.registerWriter<std::string>(LibeconfWriters::writeString);
+  rw_reg_.registerWriter<std::string_view>(LibeconfWriters::writeStringView);
   rw_reg_.registerWriter<float>(LibeconfWriters::writeFloat);
   rw_reg_.registerWriter<double>(LibeconfWriters::writeDouble);
 }
