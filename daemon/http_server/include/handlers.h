@@ -19,6 +19,7 @@ void peer__post(Request req, Response res, EndpointArgs& args);
 // PATCH
 void interface__patch(Request req, Response res, EndpointArgs& args);
 void peer__patch(Request req, Response res, EndpointArgs& args);
+void peer_rotate(Request req, Response res, EndpointArgs& args);
 
 // DELETE
 void peer__delete(Request req, Response res, EndpointArgs& args);
