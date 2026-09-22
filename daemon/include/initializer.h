@@ -21,7 +21,8 @@ void setup_database(SQLiteDbManager& db);
 void setup_endpoints(EndpointArgs& args, RequestHandler& handler);
 
 // WgInterface setup
-WgInterface setup_wginterface(const ConfigManager& config, const char name[]);
+WgInterface setup_wginterface(const ConfigManager& config, const SQLiteDbManager& db,
+                              const char name[]);
 
 // WgForge::WgForgeServer setup
 WgForgeServer setup_wgforgeserver(const ConfigManager& config);

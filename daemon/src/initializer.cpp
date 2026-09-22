@@ -101,12 +101,27 @@ WgForgeServer setup_wgforgeserver(const ConfigManager& config) {
   return WgForgeServer(srvCfg.addr, std::to_string(srvCfg.listenPort));
 }
 
-WgInterface setup_wginterface(const ConfigManager& config, const char name[]) {
+WgInterface setup_wginterface(const ConfigManager& config, const SQLiteDbManager& db,
+                              const char name[]) {
   WgInterface iface(name);
   auto ifaceCfg = get_iface_config(config, name);
 
   if (ifaceCfg.checkSubnet && !SubnetScanner::isSubnetFree(ifaceCfg.addr))
 	throw std::invalid_argument(std::format("Provided subnet \"{}\" contains host", ifaceCfg.addr));
+
+  SQLiteDbManager::SQLiteReturnCode rc;
+  auto peers = db.getAllPeers(&rc);
+  if (rc)
+	throw std::runtime_error("Failed to import peers' configs from DB");
+
+  for (const auto& peer : peers) {
+	WgPeer wgpeer;
+
+	wgpeer.setPublicKey(WgPublicKey(peer.record.public_key));
+	if (peer.record.preshared_key)
+	  wgpeer.setPresharedKey(WgPresharedKey(*peer.record.preshared_key));
+	wgpeer.addAllowedIP(WgAllowedIP(peer.record.cidr));
+  }
 
   iface.setListenPort(ifaceCfg.listenPort);
   iface.setPrivateKey(std::move(ifaceCfg.private_key));
