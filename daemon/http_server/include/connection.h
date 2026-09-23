@@ -6,7 +6,28 @@
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
+
+/*
+ * connection.h
+ * wgforge-server — Backend to manage Wireguard
+ * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
+ * <santech_montage@mail.ru>
+ *
+ * This file is part of wgforge.
+ *
+ * wgforge-server is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * wgforge-server is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
+ */
 
 #ifndef __WGFORGE_CONNECTION_H__
 #define __WGFORGE_CONNECTION_H__
@@ -30,35 +51,35 @@ public:
   Connection(const Connection&) = delete;
   Connection& operator=(const Connection&) = delete;
 
-    /// Construct a Connection with the given socket.
+  /// Construct a Connection with the given socket.
   explicit Connection(boost::asio::ip::tcp::socket socket, ConnectionManager& manager,
                       RequestHandler& handler);
 
-    /// Start the first asynchronous operation for the Connection.
+  /// Start the first asynchronous operation for the Connection.
   void start();
 
-    /// Stop all asynchronous operations associated with the Connection.
+  /// Stop all asynchronous operations associated with the Connection.
   void stop();
 
 private:
-    /// Perform an asynchronous read operation.
+  /// Perform an asynchronous read operation.
   void do_read();
 
-    /// Perform an asynchronous write operation.
+  /// Perform an asynchronous write operation.
   void do_write();
 
-    /// Socket for the Connection.
+  /// Socket for the Connection.
   boost::asio::ip::tcp::socket socket_;
 
-    /// The manager for this Connection.
+  /// The manager for this Connection.
   ConnectionManager& con_manager_;
 
-    /// The handler used to process the incoming request.
+  /// The handler used to process the incoming request.
   RequestHandler& req_handler_;
 
   beast::flat_buffer buffer_;
 
-    /// The incoming request.
+  /// The incoming request.
   http::request<beast::http::string_body> request_;
   http::response<beast::http::string_body> response_;
 };

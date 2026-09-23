@@ -1,3 +1,25 @@
+/*
+ * wgforgeserver.cpp
+ * wgforge-server — Backend to manage Wireguard
+ * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
+ * <santech_montage@mail.ru>
+ *
+ * This file is part of wgforge.
+ *
+ * wgforge-server is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * wgforge-server is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "wgforgeserver.h"
 
 #include <signal.h>
@@ -13,9 +35,9 @@ WgForgeServer::WgForgeServer(const std::string& address, const std::string& port
     , acceptor_(io_context_)
     , con_manager_()
     , req_handler_() {
-    // Register to handle the signals that indicate when the server should exit.
-    // It is safe to register for the same signal multiple times in a program,
-    // provided all registration for the specified signal is made through Asio.
+  // Register to handle the signals that indicate when the server should exit.
+  // It is safe to register for the same signal multiple times in a program,
+  // provided all registration for the specified signal is made through Asio.
   signals_.add(SIGINT);
   signals_.add(SIGTERM);
 #if defined(SIGQUIT)
@@ -24,7 +46,7 @@ WgForgeServer::WgForgeServer(const std::string& address, const std::string& port
 
   do_await_stop();
 
-    // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
+  // Open the acceptor with the option to reuse the address (i.e. SO_REUSEADDR).
   boost::asio::ip::tcp::resolver resolver(io_context_);
   boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(address, port).begin();
   acceptor_.open(endpoint.protocol());
@@ -41,8 +63,8 @@ void WgForgeServer::run() {
 
 void WgForgeServer::do_accept() {
   acceptor_.async_accept([this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
-	        // Check whether the server was stopped by a signal before this
-	        // completion handler had a chance to run.
+	// Check whether the server was stopped by a signal before this
+	// completion handler had a chance to run.
 	if (!acceptor_.is_open()) {
 	  return;
 	}
@@ -58,9 +80,9 @@ void WgForgeServer::do_accept() {
 
 void WgForgeServer::do_await_stop() {
   signals_.async_wait([this](boost::system::error_code /*ec*/, int /*signo*/) {
-	    // The server is stopped by cancelling all outstanding asynchronous
-	    // operations. Once all operations have finished the io_context::run()
-	    // call will exit.
+	// The server is stopped by cancelling all outstanding asynchronous
+	// operations. Once all operations have finished the io_context::run()
+	// call will exit.
 	acceptor_.close();
 	con_manager_.stop_all();
   });
