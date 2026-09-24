@@ -29,11 +29,22 @@ namespace WgForge {
 
 class EndpointRuntimeError : public std::runtime_error {
 public:
-  EndpointRuntimeError(const std::string& msg) : std::runtime_error(msg) {}
+  EndpointRuntimeError(const std::string& msg, const std::string& endpoint,
+                       const std::string& method)
+      : std::runtime_error(msg), endpoint_uri(endpoint), method(method) {}
 
-  EndpointRuntimeError(const char* msg) : std::runtime_error(msg) {}
+  EndpointRuntimeError(const char* msg, const char* endpoint, const char* method)
+      : std::runtime_error(msg), endpoint_uri(endpoint), method(method) {}
+
+  const std::string& getUri() const noexcept { return endpoint_uri; }
+
+  const std::string& getMethod() const noexcept { return method; }
+
+private:
+  std::string endpoint_uri;
+  std::string method;
 };
 
-} // namespace WgForge
+}  // namespace WgForge
 
-#endif // __WGFORGE_ENDPOINT_RUNTIME_ERROR_H__
+#endif  // __WGFORGE_ENDPOINT_RUNTIME_ERROR_H__

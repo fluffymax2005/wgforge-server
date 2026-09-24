@@ -63,9 +63,9 @@ int main(int argc, char* argv[]) {
 
 	WgForge::ConfigErrorHandler::throwIfError(cfg_rc);
 
-	WgForge::log_info("Configuring Wireguard interface");
-
 	// SQLite3 DB
+	WgForge::log_info("Configuring SQLite Database");
+
 	const std::string db_path(std::format("/var/lib/wgforge/{}.sqlite", argv[1]));
 
 	WgForge::SQLiteDbManager db_manager;
@@ -74,12 +74,11 @@ int main(int argc, char* argv[]) {
 	WgForge::SQLiteErrorHandler::throwIfError(db_rc);
 	WgForge::setup_database(db_manager);
 
-
 	// Wireguard iface
+
+	WgForge::log_info("Configuring Wireguard interface");
+
 	WgForge::WgInterface iface = WgForge::setup_wginterface(config_manager, db_manager, argv[1]);
-
-	WgForge::log_info("Configuring SQLite Database");
-
 
 	WgForge::log_info("Configuring HTTP server endpoints");
 

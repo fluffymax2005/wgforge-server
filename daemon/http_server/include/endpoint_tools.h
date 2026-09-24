@@ -26,6 +26,7 @@
 #include <assert.h>
 
 #include <cstdint>
+#include <exception>
 #include <format>
 #include <optional>
 #include <string_view>
@@ -110,6 +111,8 @@ std::optional<T> get_optional_field(const json::object& j, std::string_view key,
   }
 }
 
-} // namespace WgForge
+void handleEndpointException(std::exception_ptr ep, Response res);
 
-#endif // __WGFORGE_ENDPOINT_TOOLS_H__
+}  // namespace WgForge
+
+#endif  // __WGFORGE_ENDPOINT_TOOLS_H__

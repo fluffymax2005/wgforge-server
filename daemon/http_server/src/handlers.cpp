@@ -35,6 +35,7 @@
 #include <boost/json/object.hpp>
 #include <boost/json/serialize.hpp>
 #include <boost/url.hpp>
+#include <exception>
 #include <wgkey.hpp>
 
 #include "endpoint_invalid_argument.h"
@@ -53,18 +54,22 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 
   auto& iface = args.iface;
 
+  constexpr const char* URI = "/interface";
+  constexpr const char* METHOD = "GET";
+  std::exception_ptr ep;
+
   try {
 	// Iface address
 	nl_sock* sock = nl_socket_alloc();
 	if (sock == nullptr) {
-	  throw EndpointRuntimeError("Failed to alloc netlink socket");
+	  throw EndpointRuntimeError("Failed to alloc netlink socket", URI, METHOD);
 	}
 
 	auto ec = nl_connect(sock, NETLINK_ROUTE);
 	if (ec < 0) {
 	  nl_socket_free(sock);
 
-	  throw EndpointRuntimeError("Failed to connect netlink socket");
+	  throw EndpointRuntimeError("Failed to connect netlink socket", URI, METHOD);
 	}
 
 	nl_cache* link_cache;
@@ -72,7 +77,7 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 	  nl_close(sock);
 	  nl_socket_free(sock);
 
-	  throw EndpointRuntimeError("Failed to alloc rtnl link cache");
+	  throw EndpointRuntimeError("Failed to alloc rtnl link cache", URI, METHOD);
 	}
 
 	rtnl_link* link = rtnl_link_get_by_name(link_cache, iface.getName());
@@ -81,7 +86,7 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 	  nl_close(sock);
 	  nl_socket_free(sock);
 
-	  throw EndpointRuntimeError("Failed to get link by name");
+	  throw EndpointRuntimeError("Failed to get link by name", URI, METHOD);
 	}
 
 	nl_cache* addr_cache;
@@ -91,7 +96,7 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 	  nl_close(sock);
 	  nl_socket_free(sock);
 
-	  throw EndpointRuntimeError("Failed to alloc rtnl address cache");
+	  throw EndpointRuntimeError("Failed to alloc rtnl address cache", URI, METHOD);
 	}
 
 	auto ifaceIndex = rtnl_link_get_ifindex(link);
@@ -119,7 +124,8 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 
 	// Failed to found ip address
 	if (ip_addr[0] == '\0') {
-	  throw EndpointRuntimeError("Failed to find any IPv4 address corresponding to interface");
+	  throw EndpointRuntimeError("Failed to find any IPv4 address corresponding to interface", URI,
+	                             METHOD);
 	}
 
 	json::object obj;
@@ -134,9 +140,10 @@ void interface__get(Request req, Response res, EndpointArgs& args) {
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(obj);
   } catch (const std::exception& e) {
-	log_error("/interface [GET]: ", e.what());
-	res.result(http::status::internal_server_error);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -150,6 +157,9 @@ void interface__patch(Request req, Response res, EndpointArgs& args) {
   }
 
   auto& config = args.config;
+  constexpr const char* URI = "/interface";
+  constexpr const char* METHOD = "PATCH";
+  std::exception_ptr ep;
 
   try {
 	auto j = json::parse(req.body()).as_object();
@@ -168,57 +178,33 @@ void interface__patch(Request req, Response res, EndpointArgs& args) {
 
 	ConfigManager::ConfigReturnCode rc = config.beginTransaction();
 	if (rc)
-	  throw EndpointRuntimeError("Failed to start transaction");
+	  throw EndpointRuntimeError("Failed to start transaction", URI, METHOD);
 
 	if (key_opt && (rc = config.write("Interface", "PrivateKey", key_opt->data())))
 	  throw EndpointRuntimeError(
-	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"));
+	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"), URI, METHOD);
 
 	if (addr_opt && (rc = config.write("Interface", "Address", addr_opt->data()))) {
 	  config.rollBack();
 	  throw EndpointRuntimeError(
-	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"));
+	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"), URI, METHOD);
 	}
 
 	if (port_opt && (rc = config.write("Interface", "ListenPort", port_opt.value()))) {
 	  config.rollBack();
 	  throw EndpointRuntimeError(
-	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"));
+	      ConfigErrorHandler::writeToString(rc, "Failed to apply changes to config"), URI, METHOD);
 	}
 
 	config.commit();
 
 	res.result(http::status::no_content);
-  } catch (const boost::system::system_error&) {
-	json::object j;
-	j["error"] = "Invalid body. Check arguments types";
-
-	res.result(http::status::bad_request);
-	res.body() = json::serialize(j);
-
-  } catch (const EndpointInvalidArgument& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.body() = json::serialize(j);
-  } catch (const EndpointRuntimeError& e) {
-	log_error("/interface [PATCH]: ", e.what());
-	json::object j;
-	j["error"] = "Failed to process request";
-
-	res.result(http::status::internal_server_error);
-	res.body() = json::serialize(j);
-  } catch (const std::bad_alloc&) {
-	log_error("Interface [PATCH]: No enough memory");
-	json::object j;
-	j["error"] = "Failed to process request";
-
-	res.result(http::status::internal_server_error);
-	res.body() = json::serialize(j);
+  } catch (const std::exception& e) {
+	ep = std::current_exception();
   }
 
-  res.set(http::field::content_type, "application/json");
+  handleEndpointException(ep, res);
+
   res.prepare_payload();
 }
 
@@ -231,6 +217,9 @@ void peers(Request req, Response res, EndpointArgs& args) {
   }
 
   auto& db = args.db;
+  constexpr const char* URI = "/peers";
+  constexpr const char* METHOD = "GET";
+  std::exception_ptr ep;
 
   try {
 	json::object j;
@@ -239,7 +228,7 @@ void peers(Request req, Response res, EndpointArgs& args) {
 	SQLiteDbManager::SQLiteReturnCode rc;
 	const auto peers = db.getAllPeers(&rc);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	for (auto& peer : peers) {
 	  arr.emplace_back(std::move(peer));
@@ -250,15 +239,11 @@ void peers(Request req, Response res, EndpointArgs& args) {
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(j);
-  } catch (const EndpointRuntimeError& e) {
-	log_error("/peers [GET]: ", e.what());
-
-	res.result(http::status::internal_server_error);
-	res.set(http::field::content_type, "application/json");
   } catch (const std::exception& e) {
-	log_error("/peers [GET]: ", e.what());
-	res.result(http::status::internal_server_error);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -272,6 +257,9 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
   }
 
   auto& db = args.db;
+  constexpr const char* URI = "/peer";
+  constexpr const char* METHOD = "GET";
+  std::exception_ptr ep;
 
   try {
 	const auto& target = req.target();
@@ -296,40 +284,18 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
 	PeerConfig peer;
 	SQLiteDbManager::SQLiteReturnCode rc = db.getPeer(public_key, peer);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	json::object o = std::move(peer);
 
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(o);
-
-  } catch (const boost::system::system_error&) {
-	json::object j;
-	j["error"] = "Invalid body. Check arguments types";
-
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
-
-  } catch (const EndpointInvalidArgument& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
-  } catch (const EndpointRuntimeError& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::internal_server_error);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
   } catch (const std::exception& e) {
-	log_error("/peer [GET]: ", e.what());
-	res.result(http::status::internal_server_error);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -347,6 +313,9 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
   auto& cfg = args.config;
   const auto& iface_cfg = args.iface_cfg;
   PeerConfig config;
+  constexpr const char* URI = "/peer";
+  constexpr const char* METHOD = "POST";
+  std::exception_ptr ep;
 
   try {
 	auto j = json::parse(req.body()).as_object();
@@ -393,7 +362,7 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
 	SQLiteDbManager::SQLiteReturnCode db_rc;
 	auto cidrs = db.getAllPeersAddresses(&db_rc);
 	if (db_rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(db_rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(db_rc), URI, METHOD);
 
 	const auto cidr = InetUtils::findFreeClientTunnelCIDR(iface_cfg.addr, cidrs);
 	if (cidr.length() == 0)
@@ -418,7 +387,7 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
 
 	auto rc = db.addPeer(config);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	// Generate objects and insert into peer
 	WgPeer peer(&public_key);
@@ -441,25 +410,11 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
 	res.result(http::status::created);
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(o);
-  } catch (const EndpointInvalidArgument& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
-  } catch (const std::bad_alloc& e) {
-	log_error("/peer: [POST]: ", e.what());
-	res.result(http::status::internal_server_error);
   } catch (const std::exception& e) {
-	log_error("/peer [POST]: ", e.what());
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::internal_server_error);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -474,6 +429,9 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 
   auto& db = args.db;
   auto& iface = args.iface;
+  constexpr const char* URI = "/peer/rotate";
+  constexpr const char* METHOD = "PATCH";
+  std::exception_ptr ep;
 
   try {
 	const auto& target = req.target();
@@ -508,13 +466,13 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 
 	auto rc = db.rotatePeerPublicKey(old_key_sv, new_key_sv);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	try {
 	  iface.rotatePeersPublicKey(WgPublicKey(old_key_sv), WgPublicKey(new_key_sv));
 	} catch (const WgException& e) {
 	  if ((rc = db.rotatePeerPublicKey(new_key_sv, old_key_sv)))
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	  auto ec = e.getCode();
 	  if (ec == ENOENT)
@@ -523,24 +481,18 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 		throw EndpointRuntimeError(
 		    std::format("Failed to rotate peer's public key \"{}\". Error occured while applying "
 			            "changes to kernel",
-			            old_key_sv));
+			            old_key_sv),
+		    URI, METHOD);
 	}
 
 
 
 	res.result(http::status::no_content);
-  } catch (const EndpointInvalidArgument& e) {
-	json::object o;
-	o["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.body() = json::serialize(o);
-	res.set(http::field::content_type, "application/json");
-  } catch (const EndpointRuntimeError& e) {
-	log_error("/peer/rotate [PATCH]: ", e.what());
-
-	res.result(http::status::internal_server_error);
+  } catch (const std::exception& e) {
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -555,6 +507,9 @@ void peer__delete(Request req, Response res, EndpointArgs& args) {
 
   auto& db = args.db;
   auto& iface = args.iface;
+  constexpr const char* URI = "/peer";
+  constexpr const char* METHOD = "DELETE";
+  std::exception_ptr ep;
 
   try {
 	const auto& target = req.target();
@@ -580,22 +535,16 @@ void peer__delete(Request req, Response res, EndpointArgs& args) {
 
 	auto rc = db.deletePeer(public_key.c_str());
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	iface.removePeer(WgPublicKey{public_key.c_str()});
 
 	res.result(http::status::no_content);
-  } catch (const EndpointInvalidArgument& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
-
   } catch (const std::exception& e) {
-	res.result(http::status::internal_server_error);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -610,6 +559,9 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 
   auto& iface = args.iface;
   auto& db = args.db;
+  constexpr const char* URI = "/peer";
+  constexpr const char* METHOD = "PATCH";
+  std::exception_ptr ep;
 
   try {
 	const auto& target = req.target();
@@ -643,7 +595,7 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 	PeerConfig origin_cfg;
 	auto rc = db.getPeer(public_key_sv, origin_cfg);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 	PeerConfig config = origin_cfg;
 
 
@@ -694,48 +646,37 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 	  return allowedips_vec;
 	};
 
-
-
 	auto remove_allowedips_vec = getAllowedIpsVec("removeAllowedIps");
 	auto add_allowedips_vec = getAllowedIpsVec("addAllowedIps");
 
 	PeerRecord peer_record = std::move(config.record);
 	if (changes) {
 	  if ((rc = db.updatePeer(public_key_sv, peer_record)))
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	  peer_record = std::move(origin_cfg.record);
 	  if (remove_allowedips_vec.size() &&
 	      (rc = db.removeAllowedIPs(public_key_sv, remove_allowedips_vec))) {
 		if ((rc = db.updatePeer(public_key_sv, peer_record)))
 		  throw EndpointRuntimeError(
-		      "Failed to remove AllowedIps then failed to recover peer config");
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+		      "Failed to remove AllowedIps then failed to recover peer config", URI, METHOD);
+		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 	  }
 
 	  if (add_allowedips_vec.size() && (rc = db.addAllowedIPs(public_key_sv, add_allowedips_vec))) {
 		if ((rc = db.updatePeer(public_key_sv, peer_record)))
-		  throw EndpointRuntimeError("Failed to add AllowedIps then failed to recover peer config");
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+		  throw EndpointRuntimeError("Failed to add AllowedIps then failed to recover peer config",
+		                             URI, METHOD);
+		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 	  }
 	}
 
 	res.result(http::status::ok);
-  } catch (const EndpointRuntimeError& e) {
-	log_error("/peer [PATCH]: ", e.what());
-
-	res.result(http::status::internal_server_error);
-  } catch (const EndpointInvalidArgument& e) {
-	json::object o;
-	o["error"] = e.what();
-
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(o);
   } catch (const std::exception& e) {
-	log_error("/peer [PATCH]: ", e.what());
-	res.result(http::status::internal_server_error);
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
 
   res.prepare_payload();
 }
@@ -751,6 +692,9 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
   auto& db = args.db;
   auto& iface = args.iface;
   const auto& wireguard_cfg = args.wireguard_cfg;
+  constexpr const char* URI = "/peer/config";
+  constexpr const char* METHOD = "GET";
+  std::exception_ptr ep;
 
   try {
 	const auto& target = req.target();
@@ -784,7 +728,7 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
 	PeerConfig peer;
 	auto rc = db.getPeer(public_key, peer);
 	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc));
+	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	std::string config;
 	config.reserve(1024);
@@ -829,30 +773,13 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
 	res.body() = json::serialize(j);
 	res.set(http::field::content_type, "application/json");
 	res.result(http::status::ok);
-  } catch (const std::bad_alloc& e) {
-	log_error("/config [GET]: ", e.what());
-	json::object j;
-	j["error"] = "Failed to proccess request";
-
-	res.set(http::field::content_type, "application/json");
-	res.result(http::status::internal_server_error);
-	res.body() = json::serialize(j);
-  } catch (const EndpointRuntimeError& e) {
-	log_error("/config [GET]: ", e.what());
-	json::object j;
-	j["error"] = "Failed to proccess request";
-
-	res.set(http::field::content_type, "application/json");
-	res.result(http::status::internal_server_error);
-	res.body() = json::serialize(j);
-  } catch (const EndpointInvalidArgument& e) {
-	json::object j;
-	j["error"] = e.what();
-
-	res.set(http::field::content_type, "application/json");
-	res.result(http::status::internal_server_error);
-	res.body() = json::serialize(j);
+  } catch (const std::exception& e) {
+	ep = std::current_exception();
   }
+
+  handleEndpointException(ep, res);
+
+  res.prepare_payload();
 }
 
-} // namespace WgForge
+}  // namespace WgForge

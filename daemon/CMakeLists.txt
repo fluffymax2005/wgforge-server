@@ -46,6 +46,7 @@ add_executable(${PROJECT_NAME}
     http_server/src/handlers.cpp
     http_server/src/request_handler.cpp
     http_server/src/wgforgeserver.cpp
+    http_server/src/endpoint_tools.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
