@@ -29,15 +29,48 @@
 
 namespace WgForge {
 
+/**
+ * @brief Handle config IO operation errors by error code. Based on libeconf  .
+ */
 class ConfigErrorHandler {
 public:
+  /**
+   * @brief Convert rc to string.
+   * @param rc return code
+   * @param ok sets true if <TT>rc == 0</TT>, false otherwise
+   * @retval human-readable string representation of string if <TT>rc == 0</TT>
+   * @retval zero string if <TT>rc != 0</TT>
+   */
   static std::string toString(ConfigManager::ConfigReturnCode rc, bool* ok = nullptr);
 
+  /**
+   * @brief Convert read rc to string.
+   * @param rc return code
+   * @param group for which group instance string
+   * @param option for which option instance string
+   * @param ok sets true if <TT>rc == 0</TT>, false otherwise
+   * @retval human-readable string representation of string if <TT>rc == 0</TT>
+   * @retval zero string if <TT>rc != 0</TT>
+   */
   static std::string readToString(ConfigManager::ConfigReturnCode rc, std::string_view group,
                                   std::string_view option, bool* ok = nullptr);
+
+  /**
+   * @brief Convert write rc to string.
+   * @param rc return code
+   * @param msg custom error message precending to ConfigErrorManager::toString
+   * @param ok sets true if <TT>rc == 0</TT>, false otherwise
+   * @retval human-readable string representation of string if <TT>rc == 0</TT>
+   * @retval zero string if <TT>rc != 0</TT>
+   */
   static std::string writeToString(ConfigManager::ConfigReturnCode rc, std::string_view msg,
                                    bool* ok = nullptr);
 
+  /**
+   * @brief Throw exception if operation failed. 
+   * @param rc return code
+   * @throw std::runtime_error if <TT>rc != 0</TT>
+   */
   static void throwIfError(ConfigManager::ConfigReturnCode rc);
 };
 

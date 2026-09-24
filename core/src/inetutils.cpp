@@ -123,6 +123,13 @@ void InetUtils::assignIpAddress(const InterfaceConfig& config) {
 }
 
 bool InetUtils::isPortFree(std::string_view ip, in_port_t port, bool isTCP) {
+  // Create socket address to check
+  sockaddr_in addr{};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  if (inet_pton(AF_INET, ip.data(), &addr.sin_addr) != 1)
+	throw std::invalid_argument("Invalid ip provided");
+
   auto sock = socket(AF_INET, isTCP ? SOCK_STREAM : SOCK_DGRAM, 0);
   if (sock < 0)
 	throw std::runtime_error("Failed to open socket to check port availability");
@@ -130,12 +137,6 @@ bool InetUtils::isPortFree(std::string_view ip, in_port_t port, bool isTCP) {
   int opt = 1;
   if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
 	throw std::runtime_error("Failed to set socket option SO_REUSEADDR");
-
-  // Create socket address to check
-  sockaddr_in addr{};
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(port);
-  inet_pton(AF_INET, ip.data(), &addr.sin_addr);
 
   // Try bind address to socket
   auto ec = bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));

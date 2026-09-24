@@ -27,24 +27,76 @@
 
 namespace WgForge {
 
+/**
+ * @brief Auxiliary class providing inet utilities. Currenly supports **only** IPv4.
+ */
 class InetUtils {
 public:
-  // Assign IP address to Wireguard interface
+  /** 
+   * @brief Assign IP address to Wireguard interface
+   * @param config target interface configuration.
+   * @throw std::invalid_argument if config is invalid
+   * @throw std::runtime_error if failed to serve request
+   */
   static void assignIpAddress(const InterfaceConfig& config);
 
-  // Check whether port is free. Default is TCP, UDP otherwise checked
+  /** 
+   * @brief Check whether port is free.
+   * @param ip string ip representation
+   * @param port to to check
+   * @param isTCP whether to check TCP socket type, otherwise UDP is checked
+   * @retval true if port is free
+   * @retval false otherwise
+   * @throw std::invalid_argument if invalid ip provided
+   * @throw std::runtime_error if failed to handle request
+   */
   static bool isPortFree(std::string_view ip, in_port_t port, bool isTCP = true);
 
-  // Find first available lo address for given port
+  /** 
+  * @brief Find first available loopback address for given port.
+  * @param port target port
+  * @param isTCP whether to check TCP socket type, otherwise UDP is searched.
+  * @retval found address if succeded
+  * @retval empty string otherwise
+  * @note Searches along 127.x.x.x/8 network. **Performs** sending ICMPv4 requests.
+  */
   static std::string findFreeLoopbackAddress(in_port_t port, bool isTCP = true);
 
+  /**
+   * @brief Find first available private ip address for client in VPN tunnel.
+   * @param gatewayCIDR gateway cidr. Assumed to be 1st address in network
+   * @param cidrs array of busy address already given to client. Exclude it from searching.
+   * @retval found address if succeded
+   * @retval empty string otherwise
+   * @note Searches along given gatewayCIDR network. **Not** performs ICMPv4 requests.
+   */
   static std::string findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
                                               const std::vector<std::string>& cidrs);
 
+  /**
+   * @brief Get gateway cidr. Assumes gateway address is 1st one in network.
+   * @param net_cidr network cidr.
+   * @retval gateway string if succeded
+   * @retval empty string if net_cidr is invalid
+   */
   static std::string getGatewayCIDR(std::string_view net_cidr);
 
 private:
+  /**
+   * @brief Convert ip and prefix integer representation to string.
+   * @param ip_host host endian ip address integer representation
+   * @param prefix network prefix. Assumes to be in range [0; 32]
+   * @retval ip string cidr representation.
+   * @warning Various validations are **not** provided.
+   */
   static std::string toCIDR4Impl(uint32_t ip_host, uint8_t prefix);
+
+  /**
+   * @brief Parse cidr to integer representation.
+   * @param cidr host cidr
+   * @retval std::tuple of ip address, network address and network prefix respectively in host endian
+   * @retval std::nullopt if parsing failed
+   */
   static std::optional<std::tuple<uint32_t, uint32_t, uint8_t>> parseCIDR4Impl(
       std::string_view cidr);
 };

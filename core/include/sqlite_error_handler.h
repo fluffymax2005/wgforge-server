@@ -29,9 +29,25 @@
 
 namespace WgForge {
 
+/**
+ * @brief Handle database IO operation errors by error code. Based on SQLite3. 
+ */
 class SQLiteErrorHandler {
 public:
+  /**
+   * @brief Convert rc to string.
+   * @param rc return code
+   * @param ok sets true if <TT>rc == 0</TT>, false otherwise
+   * @retval human-readable string representation of string if <TT>rc == 0</TT>
+   * @retval zero string if <TT>rc != 0</TT>
+   */
   static std::string toString(SQLiteDbManager::SQLiteReturnCode rc, bool* ok = nullptr);
+
+  /**
+   * @brief Throw exception if operation failed. 
+   * @param rc return code
+   * @throw std::runtime_error if <TT>rc != 0</TT>
+   */
   static void throwIfError(SQLiteDbManager::SQLiteReturnCode rc);
 };
 

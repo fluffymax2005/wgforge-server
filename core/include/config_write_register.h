@@ -35,13 +35,31 @@
 
 namespace WgForge {
 
+/**
+ * @brief Register containing writing strategies.
+ */
 class ConfigWriteRegister {
 public:
+  /**
+   * @brief Result of writing operation. Non zero if not succeded.
+   */
   using WriteReturnCode = int;
 
+  /**
+   * @brief High level wrapper to provide writing. Do **not** use directly.
+   * @see ConfigReadRegister::ReadFunc.
+   */
   using UniversalWriteFunc = std::function<WriteReturnCode(
       econf_file* config, std::string_view group, std::string_view option, const std::any& value)>;
 
+  /**
+   * @brief Function wrapper to provide strategy to write to config.
+   * @param config config context
+   * @param group group to write to
+   * @param option option to assign value to
+   * @param value target value
+   * @retval rc return code indication success
+   */
   template<typename T>
   using WriteFunc = std::function<WriteReturnCode(econf_file* config, std::string_view group,
                                                   std::string_view option, const T& value)>;
@@ -54,16 +72,36 @@ public:
   ConfigWriteRegister(ConfigWriteRegister&&) = default;
   ConfigWriteRegister& operator=(ConfigWriteRegister&&) = default;
 
+  /**
+   * @brief Register writer. If <TT>func == false</TT> does nothing.
+   * @param func reader strategy
+   */
   template<typename T>
   void registerWriter(WriteFunc<T> func);
+
+  /**
+   * @brief Remove writer of T type. If T reader is not presented does nothing.
+   */
   template<typename T>
   void removeWriter() noexcept;
 
+  /**
+   * @brief Write value.
+   * @param config config context
+   * @param group group to read from
+   * @param option option to extract value from
+   * @param value target value
+   * @retval return code indicating success
+   * @throw std::runtime_error if reading failed.
+   */
   template<typename T>
   WriteReturnCode write(econf_file* config, std::string_view group, std::string_view option,
                         const T& value);
 
 protected:
+  /**
+   * @brief Map to writers.
+   */
   std::unordered_map<std::type_index, UniversalWriteFunc> writers_;
 };
 

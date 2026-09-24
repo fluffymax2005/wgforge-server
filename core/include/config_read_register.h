@@ -37,13 +37,31 @@
 
 namespace WgForge {
 
+/**
+ * @brief Register containing reading strategies.
+ */
 class ConfigReadRegister {
 public:
+  /**
+   * @brief Result of reading operation. Non zero if not succeded.
+   */
   using ReadReturnCode = int;
 
+  /**
+   * @brief High level wrapper to provide reading. Do **not** use directly.
+   * @see ConfigReadRegister::ReadFunc.
+   */
   using UniversalReadFunc = std::function<std::any(econf_file* config, std::string_view group,
                                                    std::string_view option, ReadReturnCode* rc)>;
 
+  /**
+   * @brief Function wrapper to provide strategy to read from config.
+   * @param config config context
+   * @param group group to read from
+   * @param option option to extract value from
+   * @param rc return code indication success
+   * @retval extracted value instance
+   */
   template<typename T>
   using ReadFunc = std::function<T(econf_file* config, std::string_view group,
                                    std::string_view option, ReadReturnCode* rc)>;
@@ -56,26 +74,67 @@ public:
   ConfigReadRegister(ConfigReadRegister&&) = default;
   ConfigReadRegister& operator=(ConfigReadRegister&&) = default;
 
+  /**
+   * @brief Register reader. If <TT>func == false</TT> does nothing.
+   * @param func reader strategy
+   */
   template<typename T>
   void registerReader(ReadFunc<T> func);
 
+  /**
+   * @brief Remove reader of T type. If T reader is not presented does nothing.
+   */
   template<typename T>
   void removeReader();
 
+  /**
+   * @brief Read value.
+   * @param config config context
+   * @param group group to read from
+   * @param option option to extract value from
+   * @retval extracted value instance
+   * @throw std::runtime_error if reading failed.
+   * @warning May throw exception by default T instantation if <TT>std::is_nothrow_constructible<T> == false</TT>
+   */
   template<typename T>
   T read(econf_file* config, std::string_view group, std::string_view option) const;
 
+  /**
+   * @brief ConfigReadRegister::read overload with rc.
+   * @see ConfigReadRegister::read.
+   */
   template<typename T>
   T read(econf_file* config, std::string_view group, std::string_view option,
          ReadReturnCode& rc) const;
 
+  /**
+   * @brief Try reading value 
+   * @param config config context
+   * @param group group to read from
+   * @param option option to extract value from
+   * @param rc optional return code indicating success
+   * @retval extracted value instance if succeded
+   * @retval std::nullopt otherwise
+   * @warning Exception safety equals to ConfigReadRegister::read. 
+   */
   template<typename T>
   std::optional<T> tryRead(econf_file* config, std::string_view group, std::string_view option,
                            ReadReturnCode* rc = nullptr) const;
 
 protected:
+  /**
+   * @brief Map to readers.
+   */
   std::unordered_map<std::type_index, UniversalReadFunc> readers_;
 
+  /**
+   * @brief High level interface to perform reading.
+   * @param config config context
+   * @param group group to read from
+   * @param option option to extract value from
+   * @param rc return code indicating success
+   * @warning Exception safety equals to ConfigReadRegister::read.
+   */
   template<typename T>
   T readWithCode(econf_file* config, std::string_view group, std::string_view option,
                  ReadReturnCode& rc) const;

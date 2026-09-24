@@ -35,16 +35,49 @@
 
 namespace WgForge {
 
+/**
+ * @brief Manages configurations via libeconf. Thread-safety: safe.
+ */
 class ConfigManager {
 public:
+  /**
+   * @brief Return code for instance methods. Non zero if method call succeded.
+   */
   using ConfigReturnCode = int;
+
+  /**
+   * @brief Function wrapper which provides strategy to create config.
+   * @param path full path to config
+   * @param rc return code to indicating success
+   * @note Requires noexcept qualificator.
+   * @see ConfigManager::create.
+   */
   using CreateConfigStrategy =
       std::move_only_function<econf_file*(std::string_view path, ConfigReturnCode& rc) noexcept>;
 
+  /**
+   * @brief Default constructor. Initializes default readers and writers.
+   * @see ConfigManager::setReadWriteRegister.
+   */
   ConfigManager();
+
+  /**
+   * @brief Open config by path.
+   * @param path full path to file
+   * @param readonly whether config opens in readonly mode.
+   */
   explicit ConfigManager(std::string_view path, bool readonly = true) noexcept;
+
+  /**
+   * @brief Construct instance setting config context. Effectively calls ConfigManager::open.
+   */
   explicit ConfigManager(econf_file* config, bool readonly = true) noexcept;
 
+
+  /**
+   * @brief Set read-writer register to permorm IO operations
+   * @param reg register. Requrements: ConfigReadWriteRegister must be base class of reg
+   */
   template<typename TRegister>
   void setReadWriteRegister(TRegister&& reg);
 
@@ -56,31 +89,107 @@ public:
 
   ~ConfigManager() = default;
 
+  /**
+   * @brief Check whether config is opened.
+   * @retval true if opened
+   * @retval false otherwise
+   */
   inline bool isOpen() const noexcept;
+
+  /**
+   * @see ConfigManager::isOpen.
+   */
   explicit operator bool() const noexcept;
 
+  /**
+   * @brief Open config. Closes current connection if <TT>ConfigManager::isOpen == true</TT>.
+   * @param config libeconf config file instance
+   * @param readonly whether config opens in readonly mode.
+   * @retval WGFORGE_OK if succeded
+   */
   ConfigReturnCode open(std::string_view path, bool readonly = true);
+
+  /**
+   * @brief Close config. If <TT>ConfigManager::isOpen == false</TT> then does nothing
+   */
   inline void close() noexcept;
 
+  /**
+   * @brief Set manager context. If <TT>ConfigManager::isOpen == true</TT> closes current connection.
+   * @param config libeconf config file instance
+   * @param readonly whether config opens in readonly mode.
+   * @warning config is captured and it's lifetime is managed by instance. If you want to release ownership use ConfigManager::release. 
+   */
   void set(econf_file* config, bool readonly = true) noexcept;
+
+  /**
+   * @brief Release ownership of current config context.
+   * @retval config context pointer. May be nullptr if <TT>ConfigManager::isOpen == false</TT> 
+   */
   inline econf_file* release() noexcept;
 
+  /**
+   * @brief Starts transaction to config.
+   * @retval WGFORGE_OK if succeded
+   */
   ConfigReturnCode beginTransaction() noexcept;
-  ConfigReturnCode commit() noexcept;
-  void rollBack() noexcept;
 
+  /**
+   * @brief Commit current changes.
+   * @retval WGFORGE_OK if succeded
+   */
+  ConfigReturnCode commit() noexcept;
+
+  /**
+   * @brief Rolls back changes to config.
+   * @retval WGFORGE_OK if succeded
+   */
+  ConfigReturnCode rollBack() noexcept;
+
+  /**
+   * @brief Check whether instance is in transaction state.
+   * @retval true if in transaction
+   * @retval false otherwise
+   */
   inline bool inTransaction() const noexcept;
 
+  /**
+   * @brief Creates new config with given strategy. If creation failed, then ownership of current config is not released.
+   * @param path full path to file
+   * @param strategy functor to create new config.
+   * @see ConfigManager::CreateConfigStrategy for requrements.
+   */
   ConfigReturnCode create(std::string_view path, CreateConfigStrategy strategy) noexcept;
 
+  /**
+   * @brief Write value to config.
+   * @param group group to write.
+   * @param option to assign value to.
+   * @param value value to assign to.
+   * @retval WGFORGE_OK if succeded
+   */
   template<typename T>
   ConfigWriteRegister::WriteReturnCode write(std::string_view group, std::string_view option,
                                              const T& value);
 
+  /**
+   * @brief Try to read value.
+   * @param group group to read value from
+   * @param option option to extract value from 
+   * @param rc optional return code indicating success
+   * @retval std::nullopt if reading failed
+   * @retval std::optional containing target value
+   */
   template<typename T>
   std::optional<T> tryRead(std::string_view group, std::string_view option,
                            ConfigReadRegister::ReadReturnCode* rc = nullptr) const;
-
+  /**
+   * @brief Read value.
+   * @param group group to read value from
+   * @param option option to extract value from 
+   * @retval value instance
+   * @throw std::runtime_error if reading failed.
+   */
   template<typename T>
   T read(std::string_view group, std::string_view option) const;
 

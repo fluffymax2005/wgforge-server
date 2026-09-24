@@ -155,14 +155,15 @@ ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
   return WGFORGE_CONFIG_OK;
 }
 
-void ConfigManager::rollBack() noexcept {
+ConfigManager::ConfigReturnCode ConfigManager::rollBack() noexcept {
   std::lock_guard lock(mtx_);
 
   if (!in_transaction_)
-	return;
+	return WGFORGE_CONFIG_TRANSACTION_INACTIVE;
 
   cfg_ = std::move(snapshot_);
   in_transaction_ = false;
+  return WGFORGE_CONFIG_OK;
 }
 
 ConfigManager::operator bool() const noexcept {

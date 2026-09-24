@@ -28,6 +28,9 @@
 
 namespace WgForge {
 
+/**
+ * @brief Inheritor to perfomr IO config operations.
+ */
 class ConfigReadWriteRegister : public ConfigReadRegister, public ConfigWriteRegister {
 public:
   ConfigReadWriteRegister() = default;

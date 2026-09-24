@@ -30,43 +30,46 @@
 #include <wginterface.hpp>
 #include <wgprivatekey.hpp>
 
+/**
+ * @brief Thread safety type for libwgcpp. Default one is MultiThreaded.
+ */
 #define __THREAD_SAFETY__ MultiThreaded
 
 namespace WgForge {
 
 // SQLiteDbManager
 
-#define WGFORGE_DATABASE_OK                 SQLITE_OK
-#define WGFORGE_INVALID_ARGUMENT            -1
-#define WGFORGE_RUNTIME_ERROR               -2
-#define WGFORGE_RECORD_EXIST                -3
-#define WGFORGE_CONNECTION_CLOSED           -4
-#define WGFORGE_PEER_EXIST                  -5
-#define WGFORGE_PEER_NOT_EXIST              -6
-#define WGFORGE_ALLOWEDIP_EXIST             -7
-#define WGFORGE_ALLOWEDIP_NOT_EXIST         -8
-#define WGFORGE_DATABASE_READONLY           -9
-#define WGFORGE_DATABASE_STRATEGY_NO_TARGET -10
+#define WGFORGE_DATABASE_OK                 SQLITE_OK  ///< Database operation succeded
+#define WGFORGE_INVALID_ARGUMENT            -1         ///< Invalid argument provided
+#define WGFORGE_RUNTIME_ERROR               -2         ///< Runtime error occured
+#define WGFORGE_RECORD_EXIST                -3         ///< Record already exists
+#define WGFORGE_CONNECTION_CLOSED           -4         ///< Database connection closed
+#define WGFORGE_PEER_EXIST                  -5         ///< Peer already exists
+#define WGFORGE_PEER_NOT_EXIST              -6         ///< Peer doesn't exist
+#define WGFORGE_ALLOWEDIP_EXIST             -7         ///< Allowedip already exists
+#define WGFORGE_ALLOWEDIP_NOT_EXIST         -8         ///< Allowedip doesn't exist
+#define WGFORGE_DATABASE_READONLY           -9         ///< Database opened in readonly mode
+#define WGFORGE_DATABASE_STRATEGY_NO_TARGET -10        ///< Empty strategy (functor) provided
 
 // ConfigManager
 
-#define WGFORGE_CONFIG_OK                   ECONF_SUCCESS
-#define WGFORGE_CONFIG_READONLY             -100
-#define WGFORGE_CONFIG_CLOSED               -101
-#define WGFORGE_CONFIG_STRATEGY_NO_TARGET   -102
-#define WGFORGE_CONFIG_NOMEM                -103
-#define WGFORGE_CONFIG_TRANSACTION_ACTIVE   -104
-#define WGFORGE_CONFIG_TRANSACTION_INACTIVE -105
-#define WGFORGE_CONFIG_RUNTIME_ERROR        -106
+#define WGFORGE_CONFIG_OK                   ECONF_SUCCESS  ///< Config operation succeded
+#define WGFORGE_CONFIG_READONLY             -100           ///< Config opened in readonly mode
+#define WGFORGE_CONFIG_CLOSED               -101           ///< Config is closed
+#define WGFORGE_CONFIG_STRATEGY_NO_TARGET   -102           ///< Empty strategy (functor) provided
+#define WGFORGE_CONFIG_NOMEM                -103  ///< Not enough memory to handle operation
+#define WGFORGE_CONFIG_TRANSACTION_ACTIVE   -104  ///< Config is in transaction already
+#define WGFORGE_CONFIG_TRANSACTION_INACTIVE -105  ///< Config isn't in transaction yet
+#define WGFORGE_CONFIG_RUNTIME_ERROR        -106  ///< Runtime error occured
 
 // ConfigWriteRegister
 
-#define WGFORGE_CONFIG_WRITER_NOT_FOUND     -200
+#define WGFORGE_CONFIG_WRITER_NOT_FOUND     -200  ///< Config writer not found
 
 // ConfigReadRegister
 
-#define WGFORGE_CONFIG_READER_NOT_FOUND     -300
-#define WGFORGE_CONFIG_INVALID_TYPE         -301
+#define WGFORGE_CONFIG_READER_NOT_FOUND     -300  ///< Config reader not found
+#define WGFORGE_CONFIG_INVALID_TYPE         -301  ///< Invalid type provided for config reader
 
 // Typedefs
 
@@ -81,18 +84,24 @@ using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
 
 // Core structures
 
+/**
+ * @brief Wireguard iface configuration
+ */
 struct InterfaceConfig {
-  char addr[INET6_ADDRSTRLEN];
-  WgPrivateKey private_key;
-  char name[IFNAMSIZ];
-  in_port_t listenPort;
-  Protocol proto_type;
-  bool checkSubnet;
+  char addr[INET_ADDRSTRLEN];  ///< IPv4 address
+  WgPrivateKey private_key;    ///< Private key
+  char name[IFNAMSIZ];         ///< Name
+  in_port_t listenPort;        ///< Listen port
+  Protocol proto_type;         ///< Protocol type listening on. Reserved for future
+  bool checkSubnet;            ///< Whether daemon check subnet occupation on startup
 };
 
+/**
+ * @brief HTTP server configuration
+ */
 struct ServerConfig {
-  char addr[INET6_ADDRSTRLEN];  // IPv6 has maximum 39 chars
-  in_port_t listenPort;
+  char addr[INET_ADDRSTRLEN];  ///< Listening address
+  in_port_t listenPort;        ///< Listen port
 };
 
 }  // namespace WgForge

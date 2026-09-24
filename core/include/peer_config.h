@@ -33,6 +33,9 @@ namespace WgForge {
 
 namespace json = boost::json;
 
+/**
+ * @brief Peer record database table represention.
+ */
 struct PeerRecord {
   int64_t id;
   std::string public_key;
@@ -45,11 +48,21 @@ struct PeerRecord {
   std::optional<std::string> deleted_at;
 };
 
+/**
+ * @brief Full peer configuration including AllowedIPs
+ */
 struct PeerConfig {
   PeerRecord record;
   std::vector<std::string> allowed_ips;
 
+  /**
+   * @brief lvalue operator to convert config to json object.
+   */
   operator json::object() const&;
+
+  /**
+   * @brief rvalue operator to convert config to json object. 
+   */
   operator json::object() &&;
 };
 

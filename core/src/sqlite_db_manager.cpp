@@ -421,6 +421,8 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::updatePeer(std::string_view p
                                                               const PeerRecord& peer) noexcept {
   if (!isOpen())
 	return WGFORGE_CONNECTION_CLOSED;
+  if (!WgKey::validateB64StringKey(public_key))
+	return WGFORGE_INVALID_ARGUMENT;
   std::lock_guard lock(mtx_);
   if (readonly_)
 	return WGFORGE_DATABASE_READONLY;
