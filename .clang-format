@@ -26,7 +26,7 @@ AlignConsecutiveShortCaseStatements:
   AlignCaseColons: true
 AlignEscapedNewlines: Left
 AlignTrailingComments:
-  Kind: Leave
+  Kind: Always
 AllowBreakBeforeNoexceptSpecifier: Never
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: true
