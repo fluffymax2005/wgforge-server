@@ -176,6 +176,7 @@ ConfigManager::ConfigReturnCode ConfigManager::open(std::string_view path, bool 
   econf_err ec = econf_readFile(&config, path.data(), "=", "#");
   if (ec == ECONF_SUCCESS) {
 	readonly_ = readonly;
+	in_transaction_ = false;
 	cfg_.reset(config);
   }
   return ec;
@@ -185,6 +186,7 @@ void ConfigManager::set(econf_file* context, bool readonly) noexcept {
   std::lock_guard lock(mtx_);
   cfg_.reset(context);
   readonly_ = readonly;
+  in_transaction_ = false;
 }
 
 ConfigManager::ConfigReturnCode ConfigManager::create(std::string_view path,
@@ -199,6 +201,8 @@ ConfigManager::ConfigReturnCode ConfigManager::create(std::string_view path,
 
   std::lock_guard lock(mtx_);
   cfg_.reset(config);
+  readonly_ = false;
+  in_transaction_ = false;
   return rc;
 }
 
@@ -207,4 +211,4 @@ void ConfigManager::ConfigDeleter::operator()(econf_file* p) noexcept {
 	econf_freeFile(p);
 }
 
-} // namespace WgForge
+}  // namespace WgForge
