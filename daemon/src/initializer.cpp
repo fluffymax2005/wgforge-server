@@ -28,7 +28,9 @@
 #include <sqlite3.h>
 
 #include <cerrno>
+#include <filesystem>
 #include <format>
+#include <unordered_set>
 
 #include "config_error_handler.h"
 #include "config_read_write_register.h"
@@ -140,9 +142,11 @@ WgInterface setup_wginterface(const ConfigManager& config, const SQLiteDbManager
 	WgPeer wgpeer;
 
 	wgpeer.setPublicKey(WgPublicKey(peer.record.public_key));
+	wgpeer.setPersistentKeepAlive(peer.record.persistent_keepalive);
 	if (peer.record.preshared_key)
 	  wgpeer.setPresharedKey(WgPresharedKey(*peer.record.preshared_key));
 	wgpeer.addAllowedIP(WgAllowedIP(peer.record.cidr));
+	iface.addPeer(std::move(wgpeer));
   }
 
   iface.setListenPort(ifaceCfg.listenPort);
@@ -173,10 +177,48 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	ConfigManager cfg(config, false);
 	cfg.setReadWriteRegister(std::move(rw_reg));
 
+	// Iterate through /etc/wgforge and extract all occupied ports for other ifaces.
+	std::unordered_set<in_port_t> occupied_ports;
+	try {
+	  namespace fs = std::filesystem;
+	  constexpr std::string_view conf_dir = "/etc/wgforge";
+	  if (fs::exists(conf_dir) && fs::is_directory(conf_dir)) {
+		for (const auto& entry : fs::directory_iterator(conf_dir)) {
+		  if (entry.is_regular_file() && entry.path().extension() == ".conf") {
+			ConfigManager existing_config;
+			if (existing_config.open(entry.path().c_str()))
+			  continue;
+			auto port_opt = existing_config.tryRead<int64_t>("Interface", "ListenPort");
+			if (port_opt)
+			  occupied_ports.insert(*port_opt);
+		  }
+		}
+	  }
+	} catch (...) {
+	}
+
+	// Iterate through available port and find first free one.
+	int listen_port = -1;
+	for (auto port = 51820; port <= std::numeric_limits<in_port_t>::max(); port++) {
+	  if (occupied_ports.contains(port))
+		continue;
+	  try {
+		if (InetUtils::isPortFree("0.0.0.0", port, false)) {
+		  listen_port = port;
+		  break;
+		}
+	  } catch (...) {
+	  }
+	}
+
+	if (listen_port == -1) {
+	  rc = WGFORGE_CONFIG_NOMEM;
+	  return nullptr;
+	}
+
 	// [Interface]
 	// ListenPort=51820
-	constexpr int LISTEN_PORT = 51820;
-	if ((rc = cfg.write<int>("Interface", "ListenPort", LISTEN_PORT)))
+	if ((rc = cfg.write<int>("Interface", "ListenPort", listen_port)))
 	  return nullptr;
 
 	// [Interface]
@@ -216,11 +258,11 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	const auto server_public_ip_opt = __get_public_ip();
 	if (!server_public_ip_opt) {
 	  if ((rc = cfg.write<std::string>("Wireguard", "PublicEndpoint",
-	                                   std::format("<PublicIpAddress>:{}", LISTEN_PORT))))
+	                                   std::format("<PublicIpAddress>:{}", listen_port))))
 		return nullptr;
 	} else {
 	  if ((rc = cfg.write<std::string>("Wireguard", "PublicEndpoint",
-	                                   std::format("{}:{}", *server_public_ip_opt, LISTEN_PORT))))
+	                                   std::format("{}:{}", *server_public_ip_opt, listen_port))))
 		return nullptr;
 	}
 
@@ -228,7 +270,7 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	char buf[128];
 	const auto iface_start_index = path.find_last_of('/');
 	path.copy(buf, iface_start_index);
-	buf[iface_start_index] = '\0'; // directory path
+	buf[iface_start_index] = '\0';  // directory path
 
 	if ((ec = econf_writeFile(config, buf, path.data() + iface_start_index + 1)) != ECONF_SUCCESS)
 	  return nullptr;
@@ -242,7 +284,7 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 
   rc = ECONF_SUCCESS;
   return config;
-} // namespace WgForge
+}  // namespace WgForge
 
 InterfaceConfig get_iface_config(const ConfigManager& config, const char name[]) {
   InterfaceConfig ifaceCfg;
@@ -354,4 +396,4 @@ static std::optional<std::string> __get_public_ip() {
   return ip;
 }
 
-} // namespace WgForge
+}  // namespace WgForge
