@@ -38,10 +38,10 @@ void InetUtils::assignIpAddress(const InterfaceConfig& config) {
 	throw std::invalid_argument("Invalid interface address CIDR provided");
 
   in_addr ipv4_addr;
-  char ip_text_addr[sizeof(config.addr) - 5]{}; // not include [], :, port number
+  char ip_text_addr[sizeof(config.addr) - 5]{};  // not include [], :, port number
 
   std::strncpy(ip_text_addr, config.addr,
-               slash_pos); // copy address
+               slash_pos);  // copy address
 
   if (inet_pton(AF_INET, ip_text_addr, &ipv4_addr) != 1)
 	throw std::invalid_argument("Invalid interface IP address provided");
@@ -218,7 +218,7 @@ std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
 
   auto [ip, network, prefix] = *parsed;
   const uint32_t host_count =
-      (1u << (32 - prefix)) - 3; // subnet, getway and broadcast addressed are not included
+      (1u << (32 - prefix)) - 3;  // subnet, getway and broadcast addressed are not included
   const uint32_t first_host = network + 1;
   const uint32_t last_host = first_host + host_count;
 
@@ -233,7 +233,7 @@ std::string InetUtils::findFreeClientTunnelCIDR(std::string_view gatewayCIDR,
 
   for (uint32_t ip = first_host + 1; ip < last_host; ip++) {
 	if (used.find(ip) == used.end())
-	  return toCIDR4Impl(ip, prefix);
+	  return toCIDR4Impl(ip, 32);
   }
 
   return "";
@@ -275,4 +275,4 @@ std::optional<std::tuple<uint32_t, uint32_t, uint8_t>> InetUtils::parseCIDR4Impl
   return std::make_tuple(ip, network, static_cast<uint8_t>(prefix));
 }
 
-} // namespace WgForge
+}  // namespace WgForge
