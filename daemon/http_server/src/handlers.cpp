@@ -403,6 +403,7 @@ void peer__post(Request req, Response res, EndpointArgs& args) {
 
 	json::object o;
 	o["publicKey"] = std::move(public_key_b64);
+	o["privateKey"] = private_key.toB64String();
 	if (preshared_key_opt)
 	  o["presharedKey"] = *config.record.preshared_key;
 	o["cidr"] = cidr;
@@ -451,27 +452,26 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 	if (!WgKey::validateB64StringKey(old_key.c_str()))
 	  throw EndpointInvalidArgument("\"oldPublicKey\" is invalid");
 
-	auto new_key_it = params.find("newPublickey");
-	if (new_key_it == params.end())
-	  throw EndpointInvalidArgument("\"newPublicKey\" not provided");
-	std::string new_key = boost::urls::decode(new_key_it->value).value();
-	if (!WgKey::validateB64StringKey(new_key.c_str()))
-	  throw EndpointInvalidArgument("\"newPublicKey\" is invalid");
+	WgPrivateKey private_key;
+	WgPublicKey new_public_key(private_key);
+	do {
+	  private_key.generate();
+	  new_public_key = WgPublicKey(private_key);
+	} while (iface.hasPeerWithPublicKey(new_public_key));
 
+	const auto new_key = new_public_key.toB64String();
 
-	const std::string_view old_key_sv = old_key_it->value;
-	const std::string_view new_key_sv = new_key_it->value;
-	if (old_key_sv == new_key_sv)
-	  throw EndpointInvalidArgument("Old and new public key must differ from each other");
-
-	auto rc = db.rotatePeerPublicKey(old_key_sv, new_key_sv);
-	if (rc)
+	auto rc = db.rotatePeerPublicKey(old_key, new_key);
+	if (rc) {
+	  if (rc == WGFORGE_PEER_NOT_EXIST)
+		throw EndpointInvalidArgument(SQLiteErrorHandler::toString(rc));
 	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
+	}
 
 	try {
-	  iface.rotatePeersPublicKey(WgPublicKey(old_key_sv), WgPublicKey(new_key_sv));
+	  iface.rotatePeersPublicKey(WgPublicKey(old_key), WgPublicKey(new_key));
 	} catch (const WgException& e) {
-	  if ((rc = db.rotatePeerPublicKey(new_key_sv, old_key_sv)))
+	  if ((rc = db.rotatePeerPublicKey(new_key, old_key)))
 		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	  auto ec = e.getCode();
@@ -481,13 +481,17 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 		throw EndpointRuntimeError(
 		    std::format("Failed to rotate peer's public key \"{}\". Error occured while applying "
 			            "changes to kernel",
-			            old_key_sv),
+			            old_key),
 		    URI, METHOD);
 	}
 
+	json::object o;
+	o["publicKey"] = std::move(new_key);
+	o["privateKey"] = private_key.toB64String();
 
-
-	res.result(http::status::no_content);
+	res.body() = json::serialize(o);
+	res.set(http::field::content_type, "application/json");
+	res.result(http::status::ok);
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
