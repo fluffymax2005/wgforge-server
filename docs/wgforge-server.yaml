@@ -1,0 +1,491 @@
+openapi: 3.1.0
+info:
+  title: WgForge Server Endpoints API
+  version: 0.1.0
+  description: REST API for managing Wireguard interfaces and peers via wgforge-server backend.
+servers:
+  - url: http://<server_ip_address>:<server_port>
+tags:
+  - name: Interface
+    description: Wireguard system interface configuration and state
+  - name: Peer
+    description: Wireguard client peers management
+
+paths:
+  /interface:
+    get:
+      tags: ["Interface"]
+      summary: Get interface state
+      description: Returns runtime state and current active parameters of the Wireguard interface from both OS and active configuration.
+      responses:
+        '200':
+          description: Interface current data successfully retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - ifaceName
+                  - isUp
+                  - listenPort
+                  - ipAddress
+                  - privateKey
+                  - publicKey
+                properties:
+                  ifaceName:
+                    type: string
+                    description: Wireguard kernel interface name
+                    example: "wg0"
+                  isUp:
+                    type: boolean
+                    description: Operational status of the interface (active/inactive)
+                    example: true
+                  listenPort:
+                    type: integer
+                    minimum: 1
+                    maximum: 65535
+                    description: Active UDP port of the Wireguard interface
+                    example: 51820
+                  ipAddress:
+                    type: string
+                    format: ipv4
+                    description: Local IP address of the interface in the tunnel
+                    example: "10.0.0.1"
+                  privateKey:
+                    type: string
+                    description: Base64-encoded private key of the interface
+                    example: "HmbQabY5r8yE2H39dHM/SkvKv1ag5OD5MQmm5VYyEH8="
+                  publicKey:
+                    type: string
+                    description: Base64-encoded public key of the interface
+                    example: "htbqabY8r8yE2H39qHM/SkvKv1ag5OD5MQmm5VYyEH8="
+        '405':
+          description: Requested method is not allowed (only GET is permitted)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Only GET"
+        '500':
+          description: Internal server error (Netlink, socket routing, or internal kernel error)
+
+    patch:
+      tags: ["Interface"]
+      summary: Edit Wireguard interface configuration
+      description: Modifies the interface configuration file. Note that changes are saved to the ini-style config file and will only be applied to the system interface upon daemon/interface restart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                privateKey:
+                  type: string
+                  description: New Base64-encoded private key for the interface
+                  example: "WEnYfK9f7K89fK9fWEnYfK9f7K89fK9fWEnYfK9f7K8="
+                address:
+                  type: string
+                  description: New interface IP address in CIDR format
+                  example: "10.0.0.1/24"
+                listenPort:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                  description: New UDP listen port for the interface
+                  example: 51820
+      responses:
+        '204':
+          description: Configuration successfully modified in the configuration file
+        '400':
+          description: Invalid argument provided in request body (e.g. invalid IP address CIDR, port out of range, or bad Base64 key format)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid listen address"
+        '405':
+          description: Requested method is not allowed (only PATCH is permitted)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "ONLY PATCH"
+        '500':
+          description: Internal server error (e.g. transaction failure, file write permissions)
+
+  /peers:
+    get:
+      tags: ["Peer"]
+      summary: Get all peers
+      description: Retrieves a complete list of peers registered in the SQLite database, along with their assigned tunnel CIDRs, allowed IPs, and keepalive intervals.
+      responses:
+        '200':
+          description: A list of registered peers
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - peers
+                properties:
+                  peers:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - publicKey
+                        - cidr
+                        - persistentKeepalive
+                      properties:
+                        id:
+                          type: integer
+                          description: Peer ID in the database
+                          example: 1
+                        publicKey:
+                          type: string
+                          description: Peer's Base64 public key
+                          example: "fjN3Fo4kOq06ANkGVK4bbP95AuwCzSljMlWNCHgFgjI="
+                        presharedKey:
+                          type: string
+                          nullable: true
+                          description: Peer's Base64 preshared key (if set)
+                          example: "KUX1p8mL7ZzZUq8aYqeLnDbf/nlLRpmsZaWiFjPS0l4="
+                        cidr:
+                          type: string
+                          description: Individual client tunnel address
+                          example: "10.0.0.2/32"
+                        persistentKeepalive:
+                          type: integer
+                          description: Persistent keepalive interval in seconds
+                          example: 25
+                        description:
+                          type: string
+                          nullable: true
+                          description: Description or name associated with the peer
+                          example: "Android Phone"
+                        createdAt:
+                          type: string
+                          format: date-time
+                          description: Peer creation timestamp
+                          example: "2026-09-25T10:06:00Z"
+                        allowedIps:
+                          type: array
+                          items:
+                            type: string
+                          description: Subnets that this peer is allowed to route
+                          example: ["10.0.0.2/32"]
+        '405':
+          description: Method not allowed (only GET is permitted)
+        '500':
+          description: Database or memory allocation runtime error
+
+  /peer:
+    get:
+      tags: ["Peer"]
+      summary: Get specific peer details
+      description: Retrieves database and tunnel configuration details for a single peer, specified by its Base64 public key in the query string.
+      parameters:
+        - name: publicKey
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The Base64-encoded public key of the peer
+          example: "fjN3Fo4kOq06ANkGVK4bbP95AuwCzSljMlWNCHgFgjI="
+      responses:
+        '200':
+          description: Peer details successfully retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - publicKey
+                  - cidr
+                  - persistentKeepalive
+                properties:
+                  id:
+                    type: integer
+                    example: 5
+                  publicKey:
+                    type: string
+                    example: "fjN3Fo4kOq06ANkGVK4bbP95AuwCzSljMlWNCHgFgjI="
+                  presharedKey:
+                    type: string
+                    nullable: true
+                    example: "KUX1p8mL7ZzZUq8aYqeLnDbf/nlLRpmsZaWiFjPS0l4="
+                  cidr:
+                    type: string
+                    example: "10.0.0.5/32"
+                  persistentKeepalive:
+                    type: integer
+                    example: 15
+                  description:
+                    type: string
+                    nullable: true
+                    example: "Office Laptop"
+                  allowedIps:
+                    type: array
+                    items:
+                      type: string
+                    example: ["10.0.0.5/32"]
+        '400':
+          description: Invalid public key or missing query parameter
+        '404':
+          description: Peer not found in database
+        '500':
+          description: Database transaction error
+
+    post:
+      tags: ["Peer"]
+      summary: Create a new peer
+      description: Generates a new client keypair, automatically allocates a free host IP address from the interface capacity, saves the peer to the SQLite database, registers it with the kernel Wireguard interface, and returns the private key **exactly once** in the response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - allowedIps
+              properties:
+                generatePresharedKey:
+                  type: boolean
+                  description: Should a preshared key (psk) be automatically generated for this peer
+                  default: true
+                  example: true
+                allowedIps:
+                  type: array
+                  items:
+                    type: string
+                  description: Client-side subnets allowed to be routed
+                  example: ["192.168.1.0/24"]
+                persistentKeepalive:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                  default: 25
+                  description: Keepalive interval to keep NAT connections alive
+                  example: 15
+                description:
+                  type: string
+                  maxLength: 25
+                  description: Optional peer description
+                  example: "James Bond cool smartphone"
+      responses:
+        '201':
+          description: Peer successfully created. **This is the only time you will see the client's privateKey!**
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - publicKey
+                  - privateKey
+                  - cidr
+                properties:
+                  publicKey:
+                    type: string
+                    description: Generated client public key
+                    example: "nNn48ueXsJZWnJ4+qHrCoe6TcchHA98cLvFJWJo5DDc="
+                  privateKey:
+                    type: string
+                    description: Generated client private key. **Store this securely - it is not saved on the server!**
+                    example: "qHrCoe6TcchHA98cLvFJWJo5DDcnNn48ueXsJZWnJ4="
+                  presharedKey:
+                    type: string
+                    description: Generated preshared key (only present if generatePresharedKey was true)
+                    example: "KUX1p8mL7ZzZUq8aYqeLnDbf/nlLRpmsZaWiFjPS0l4="
+                  cidr:
+                    type: string
+                    description: Allocated tunnel IP address for the client (using /32)
+                    example: "10.0.0.2/32"
+        '400':
+          description: Invalid parameter provided or interface has run out of capacity
+        '500':
+          description: Database or kernel Netlink error
+
+    patch:
+      tags: ["Peer"]
+      summary: Partially update peer parameters
+      description: Allows dynamic updates to peer details such as description, keepalive interval, preshared keys, or incremental additions/removals of allowed IP ranges. Updates are synchronized with both the SQLite database and the kernel interface. If no body keys provided then nothing is done.
+      parameters:
+        - name: publicKey
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Current Base64 public key of the target peer to modify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                presharedKey:
+                  type: string
+                  description: New Base64 preshared key to assign
+                  nullable: true
+                  example: "KUX1p8mL7ZzZUq8aYqeLnDbf/nlLRpmsZaWiFjPS0l4="
+                persistentKeepalive:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                  nullable: true
+                  description: Modify keepalive interval
+                  example: 25
+                description:
+                  type: string
+                  maxLength: 25
+                  nullable: true
+                  description: Update description string
+                  example: "Home Tablet"
+                removeAllowedIps:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: List of subnets to remove from peer's routing
+                  example: ["192.168.1.0/24"]
+                addAllowedIps:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: List of new subnets to add to peer's routing
+                  example: ["10.0.1.0/24"]
+      responses:
+        '200':
+          description: Peer configuration successfully updated or nothing is done
+        '400':
+          description: Invalid input arguments, malformed query, or overlapping CIDRs
+        '500':
+          description: Database or Wireguard kernel device configuration failed
+
+    delete:
+      tags: ["Peer"]
+      summary: Delete peer
+      description: Softly 'deletes' a peer from the SQLite database and detaches/deletes it from the running Wireguard kernel interface using hot-reload synchronization.
+      parameters:
+        - name: publicKey
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The Base64 public key of the peer to delete
+      responses:
+        '204':
+          description: Peer successfully deleted from both database and kernel interface
+        '400':
+          description: Missing parameter or invalid data provided
+        '404':
+          description: Target peer not exist
+        '500':
+          description: Database deletion error or kernel sync failure
+
+  /peer/rotate:
+    patch:
+      tags: ["Peer"]
+      summary: Rotate peer keypair
+      description: Generates a completely new keypair for a specific peer. The database and kernel interface are updated dynamically with the new public key. The new private key is returned in the response **exactly once**.
+      parameters:
+        - name: oldPublicKey
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The current active Base64 public key of the peer
+          example: "fjN3Fo4kOq06ANkGVK4bbP95AuwCzSljMlWNCHgFgjI="
+      responses:
+        '200':
+          description: Keypair rotated successfully. **This is the only time the new privateKey is returned!**
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - publicKey
+                  - privateKey
+                properties:
+                  publicKey:
+                    type: string
+                    description: Newly generated Base64 public key
+                    example: "nNn48ueXsJZWnJ4+qHrCoe6TcchHA98cLvFJWJo5DDc="
+                  privateKey:
+                    type: string
+                    description: Newly generated Base64 private key. **Must be kept secret!**
+                    example: "qHrCoe6TcchHA98cLvFJWJo5DDcnNn48ueXsJZWnJ4="
+        '400':
+          description: Invalid public key
+        '404':
+          description: Target peer not found
+        '500':
+          description: Failed to commit keys to database or sync changes with active kernel device
+
+  /peer/config:
+    get:
+      tags: ["Peer"]
+      summary: Generate client configuration file (.conf)
+      description: Generates a standard ready-to-use Wireguard client configuration file template. Because the client's private key is not stored on the server, the `PrivateKey` field is replaced with a placeholder `<PRIVATE_KEY>` which the user must fill in manually on their device.
+      parameters:
+        - name: publicKey
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Base64 public key of the client to generate configuration for
+          example: "fjN3Fo4kOq06ANkGVK4bbP95AuwCzSljMlWNCHgFgjI="
+        - name: publicEndpoint
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Override default public endpoint IP and port (e.g. to bypass NAT)
+          example: "203.0.113.50:51820"
+      responses:
+        '200':
+          description: Client configuration file successfully generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - config
+                properties:
+                  config:
+                    type: string
+                    description: Fully formatted standard Wireguard client configuration file text
+                    example: |
+                      # Wireguard Client configuration
+                      # Provided by WgForge
+
+                      [Interface]
+                      # Client Private key - keep this SECRET
+                      PrivateKey=<PRIVATE_KEY>
+                      # Preshared key
+                      PresharedKey=ANM58ueRsJZWnJ4+qHrCoe6TcchHA98cLvFJWJo5DDc=
+                      # Client VPN tunnel IP address
+                      Address=10.0.0.2/32
+                      # DNS servers to resolve server domain name (if used)
+                      DNS=1.1.1.1, 8.8.8.8, 1.0.0.1
+
+                      [Peer]
+                      # Server Public key
+                      PublicKey=htbqabY8r8yE2H39qHM/SkvKv1ag5OD5MQmm5VYyEH8=
+                      # Server Endpoint
+                      Endpoint=203.0.113.50:51820
+                      # Keepalive time in seconds for NAT
+                      PersistentKeepalive=25
+        '400':
+          description: Malformed request parameters
+        '404':
+          description: Peer not found
+        '500':
+          description: Database or configuration retrieval failure
