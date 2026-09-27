@@ -1,6 +1,9 @@
 #include "endpoint_tools.h"
 
+#include <boost/json/impl/serialize.hpp>
+
 #include "endpoint_invalid_argument.h"
+#include "endpoint_notfound.h"
 #include "endpoint_runtime_error.h"
 #include "handlers.h"
 
@@ -19,6 +22,12 @@ void handleEndpointException(std::exception_ptr ep, Response res) {
   } catch (const EndpointRuntimeError& e) {
 	log_error(e.getUri(), " [", e.getMethod(), "]: ", e.what());
 	res.result(http::status::internal_server_error);
+  } catch (const EndpointNotFound& e) {
+	json::object o;
+	o["error"] = e.what();
+	res.result(http::status::not_found);
+	res.set(http::field::content_type, "application/json");
+	res.body() = json::serialize(o);
   } catch (const boost::system::system_error& e) {
 	json::object j;
 	j["error"] = e.what();

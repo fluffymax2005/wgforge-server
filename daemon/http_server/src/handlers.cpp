@@ -39,6 +39,7 @@
 #include <wgkey.hpp>
 
 #include "endpoint_invalid_argument.h"
+#include "endpoint_notfound.h"
 #include "endpoint_runtime_error.h"
 #include "endpoint_tools.h"
 
@@ -257,6 +258,7 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
   }
 
   auto& db = args.db;
+  auto& iface = args.iface;
   constexpr const char* URI = "/peer";
   constexpr const char* METHOD = "GET";
   std::exception_ptr ep;
@@ -281,10 +283,16 @@ void peer__get(Request req, Response res, EndpointArgs& args) {
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 	}
 
+	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
+	  throw EndpointNotFound("Peer not found");
+
 	PeerConfig peer;
 	SQLiteDbManager::SQLiteReturnCode rc = db.getPeer(public_key, peer);
-	if (rc)
+	if (rc) {
+	  if (rc == SQLITE_DONE)
+		throw EndpointNotFound("Peer not found");
 	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
+	}
 
 	json::object o = std::move(peer);
 
@@ -452,6 +460,9 @@ void peer_rotate(Request req, Response res, EndpointArgs& args) {
 	if (!WgKey::validateB64StringKey(old_key.c_str()))
 	  throw EndpointInvalidArgument("\"oldPublicKey\" is invalid");
 
+	if (!iface.hasPeerWithPublicKey(WgPublicKey(old_key)))
+	  throw EndpointNotFound("Peer not found");
+
 	WgPrivateKey private_key;
 	WgPublicKey new_public_key(private_key);
 	do {
@@ -535,7 +546,7 @@ void peer__delete(Request req, Response res, EndpointArgs& args) {
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 
 	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key.c_str())))
-	  throw EndpointInvalidArgument("Peer does not exist");
+	  throw EndpointNotFound("Peer does not exist");
 
 	auto rc = db.deletePeer(public_key.c_str());
 	if (rc)
@@ -585,6 +596,8 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
+	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
+	  throw EndpointNotFound("Peer not found");
 
 
 	uint8_t changes = 0;
@@ -594,7 +607,7 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 	if (!WgKey::validateB64StringKey(public_key_sv))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key_sv)))
-	  throw EndpointInvalidArgument("Peer not found");
+	  throw EndpointNotFound("Peer not found");
 
 	PeerConfig origin_cfg;
 	auto rc = db.getPeer(public_key_sv, origin_cfg);
@@ -718,6 +731,9 @@ void peer_config(Request req, Response res, EndpointArgs& args) {
 	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
+	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
+	  throw EndpointNotFound("Peer not found");
+
 
 	std::string public_endpoint;
 	auto addr_it = params.find("publicEndpoint");
