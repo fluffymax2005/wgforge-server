@@ -602,15 +602,9 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 
 	uint8_t changes = 0;
 	json::object j = json::parse(req.body()).as_object();
-	auto public_key_opt = get_optional_field<std::string_view>(j, "publicKey");
-	const std::string_view public_key_sv = public_key_opt->data();
-	if (!WgKey::validateB64StringKey(public_key_sv))
-	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key_sv)))
-	  throw EndpointNotFound("Peer not found");
 
 	PeerConfig origin_cfg;
-	auto rc = db.getPeer(public_key_sv, origin_cfg);
+	auto rc = db.getPeer(public_key, origin_cfg);
 	if (rc)
 	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 	PeerConfig config = origin_cfg;
@@ -668,20 +662,20 @@ void peer__patch(Request req, Response res, EndpointArgs& args) {
 
 	PeerRecord peer_record = std::move(config.record);
 	if (changes) {
-	  if ((rc = db.updatePeer(public_key_sv, peer_record)))
+	  if ((rc = db.updatePeer(public_key, peer_record)))
 		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 
 	  peer_record = std::move(origin_cfg.record);
 	  if (remove_allowedips_vec.size() &&
-	      (rc = db.removeAllowedIPs(public_key_sv, remove_allowedips_vec))) {
-		if ((rc = db.updatePeer(public_key_sv, peer_record)))
+	      (rc = db.removeAllowedIPs(public_key, remove_allowedips_vec))) {
+		if ((rc = db.updatePeer(public_key, peer_record)))
 		  throw EndpointRuntimeError(
 		      "Failed to remove AllowedIps then failed to recover peer config", URI, METHOD);
 		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
 	  }
 
-	  if (add_allowedips_vec.size() && (rc = db.addAllowedIPs(public_key_sv, add_allowedips_vec))) {
-		if ((rc = db.updatePeer(public_key_sv, peer_record)))
+	  if (add_allowedips_vec.size() && (rc = db.addAllowedIPs(public_key, add_allowedips_vec))) {
+		if ((rc = db.updatePeer(public_key, peer_record)))
 		  throw EndpointRuntimeError("Failed to add AllowedIps then failed to recover peer config",
 		                             URI, METHOD);
 		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);

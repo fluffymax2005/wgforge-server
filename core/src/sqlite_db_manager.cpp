@@ -144,7 +144,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::getPeer(std::string_view publ
 	  return rc;
   }
 
-  if ((rc = sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC)) !=
+  if ((rc = sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC)) !=
       SQLITE_OK) {
 	sqlite3_finalize(stmt);
 	return rc;
@@ -279,7 +279,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
       "SELECT p.Id FROM Peers p WHERE p.Public_key = ? AND p.Deleted_at IS NULL";
   if ((rc = sqlite3_prepare_v2(db_.get(), CHECK_OLD, -1, &stmt, nullptr)))
 	return WGFORGE_RUNTIME_ERROR;
-  sqlite3_bind_text(stmt, 1, old_public_key.data(), old_public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, old_public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id = -1;
   if ((rc = sqlite3_step(stmt)) == SQLITE_ROW)
@@ -295,7 +295,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
   constexpr const char CHECK_NEW[] = "SELECT p.Id FROM Peers p WHERE p.Public_key = ?";
   if ((rc = sqlite3_prepare_v2(db_.get(), CHECK_NEW, -1, &stmt, nullptr)))
 	return WGFORGE_RUNTIME_ERROR;
-  sqlite3_bind_text(stmt, 1, new_public_key.data(), new_public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, new_public_key.data(), -1, SQLITE_STATIC);
 
   bool taken = sqlite3_step(stmt) == SQLITE_ROW;
   sqlite3_finalize(stmt);
@@ -313,7 +313,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::rotatePeerPublicKey(
 
   if (sqlite3_prepare_v2(db_.get(), UPDATE_KEY, -1, &stmt, nullptr))
 	return WGFORGE_RUNTIME_ERROR;
-  sqlite3_bind_text(stmt, 1, new_public_key.data(), new_public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, new_public_key.data(), -1, SQLITE_STATIC);
   sqlite3_bind_int64(stmt, 2, peer_id);
 
   rc = sqlite3_step(stmt);
@@ -500,7 +500,7 @@ std::vector<std::string> SQLiteDbManager::getAllowedIPs(std::string_view public_
 	return {};
   }
 
-  if ((ec = sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC)) !=
+  if ((ec = sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC)) !=
       SQLITE_OK) {
 	sqlite3_finalize(stmt);
 	if (rc)
@@ -545,7 +545,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::deletePeer(
 	return rc;
   }
 
-  sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id;
   if ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
@@ -617,7 +617,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIP(std::string_view
 	return rc;
   }
 
-  sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id;
   if ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
@@ -712,7 +712,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::addAllowedIPs(std::string_vie
 	sqlite3_exec(db_.get(), "ROLLBACK;", nullptr, nullptr, nullptr);
 	return rc;
   }
-  sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id = -1;
   if (sqlite3_step(stmt) == SQLITE_ROW)
@@ -811,7 +811,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIP(std::string_v
 	return rc;
   }
 
-  sqlite3_bind_text(stmt, 1, public_key.data(), public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id;
   if ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
@@ -890,7 +890,7 @@ SQLiteDbManager::SQLiteReturnCode SQLiteDbManager::removeAllowedIPs(
 	return rc;
   }
   uint8_t index = 1;
-  sqlite3_bind_text(stmt, index++, public_key.data(), public_key.size(), SQLITE_STATIC);
+  sqlite3_bind_text(stmt, index++, public_key.data(), -1, SQLITE_STATIC);
 
   int64_t peer_id = -1;
   if (sqlite3_step(stmt) == SQLITE_ROW)
