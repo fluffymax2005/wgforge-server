@@ -1,5 +1,5 @@
 /*
- * peer_config.h
+ * allowedip.h
  * wgforge-core — Core library for wgforge-server (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
@@ -20,52 +20,39 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_RECORD_H__
-#define __WGFORGE_PEER_RECORD_H__
+#ifndef __WGFORGE_ALLOWEDIP_H__
+#define __WGFORGE_ALLOWEDIP_H__
 
-#include <boost/json.hpp>
-#include <cstdint>
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace WgForge {
 
-namespace json = boost::json;
-
 /**
- * @brief Peer record database table represention.
+ * @brief AllowedIPs record database table represention.
  */
-struct PeerRecord {
+#pragma db object table("AllowedIPs")
+
+struct AllowedIP {
+#pragma db id auto column("Id")
   int64_t id;
-  std::string public_key;
-  std::optional<std::string> preshared_key;
+
+#pragma db column("Peer_id") not_null options("REFERENCES Peers(Id) ON DELETE CASCADE")
+  int64_t peer_id;
+
+#pragma db column("CIDR") type("TEXT")
   std::string cidr;
-  uint16_t persistent_keepalive;
-  std::optional<std::string> description;
+
+#pragma db column("Created_at") type("DATETIME") default("CURRENT_TIMESTAMP")
   std::string created_at;
+
+#pragma db column("Updated_at") type("DATETIME")
   std::optional<std::string> updated_at;
+
+#pragma db column("Deleted_at") type("DATETIME")
   std::optional<std::string> deleted_at;
 };
 
-/**
- * @brief Full peer configuration including AllowedIPs
- */
-struct PeerConfig {
-  PeerRecord record;
-  std::vector<std::string> allowed_ips;
+}  // namespace WgForge
 
-  /**
-   * @brief lvalue operator to convert config to json object.
-   */
-  operator json::object() const&;
-
-  /**
-   * @brief rvalue operator to convert config to json object. 
-   */
-  operator json::object() &&;
-};
-
-} // namespace WgForge
-
-#endif // __WGFORGE_PEER_RECORD_H__
+#endif  // __WGFORGE_ALLOWEDIP_H__

@@ -7,9 +7,9 @@
 **/html/
 **latex/
 **pdf/
-**/scripts/
 **.qtcreator/
 **.vscode/
+**generated/
 
 # Ignore file extensions
 *.o

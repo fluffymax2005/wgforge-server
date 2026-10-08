@@ -32,8 +32,7 @@ PeerConfig::operator json::object() const& {
 	o["preshared_key"] = *record.preshared_key;
   o["CIDR"] = record.cidr;
   o["persistent_keepalive"] = record.persistent_keepalive;
-  if (record.description)
-	o["description"] = *record.description;
+  o["description"] = record.description;
   o["created_at"] = record.created_at;
   if (record.updated_at)
 	o["updated_at"] = *record.updated_at;
@@ -57,8 +56,7 @@ PeerConfig::operator json::object() && {
 	o["preshared_key"] = std::move(*record.preshared_key);
   o["CIDR"] = std::move(record.cidr);
   o["persistent_keepalive"] = record.persistent_keepalive;
-  if (record.description)
-	o["description"] = std::move(*record.description);
+  o["description"] = std::move(record.description);
   o["created_at"] = std::move(record.created_at);
   if (record.updated_at)
 	o["updated_at"] = std::move(*record.updated_at);
@@ -74,4 +72,4 @@ PeerConfig::operator json::object() && {
   return o;
 }
 
-} // namespace WgForge
+}  // namespace WgForge

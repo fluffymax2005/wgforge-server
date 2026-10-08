@@ -23,18 +23,15 @@
 #ifndef __WGFORGE_SQLITEDBMANAGER_H__
 #define __WGFORGE_SQLITEDBMANAGER_H__
 
-#include <sqlite3.h>
-
-#include <cstdint>
 #include <memory>
 #include <mutex>
-#include <optional>
+#include <odb/sqlite/database.hxx>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "peer.hxx"
 #include "peer_config.h"
-#include "wgforge.h"
 
 namespace WgForge {
 
@@ -143,7 +140,7 @@ public:
    * @retval returns WGFORGE_DATABASE_OK on success otherwise error code
    * @note Only PeerConfig::preshared_key, PeerConfig::persistent_keepalive and PeerConfig::description took into account. 
    */
-  SQLiteReturnCode updatePeer(std::string_view publiс_key, const PeerRecord& peer) noexcept;
+  SQLiteReturnCode updatePeer(std::string_view publiс_key, const Peer& peer) noexcept;
 
   /**
    * @brief "Delete" peer from database.
@@ -217,31 +214,14 @@ public:
 
 private:
   /**
-   * @brief Custom deleter to release config ownership.
-   */
-  struct DbDeleter {
-	void operator()(sqlite3* p) noexcept;
-  };
-
-  /**
    * @brief Thread unsafe version of closing connection.
    */
   inline void __closeConnectionUnsafe() noexcept;
 
   /**
-   * @brief Perform casting to pstr to corresponding col of stmt.
-   */
-  inline void __convertText(const char** pstr, int col, sqlite3_stmt* stmt) const noexcept;
-
-  /**
-   * @brief Fill peer record based on stmt.
-   */
-  PeerRecord __fillPeerRecord(sqlite3_stmt* stmt) const;
-
-  /**
    * @brief Database ptr to connection.
    */
-  std::unique_ptr<sqlite3, DbDeleter> db_;
+  std::unique_ptr<odb::sqlite::database> db_;
 
   /**
    * @brief Readonly flag to interact with database.
@@ -254,6 +234,6 @@ private:
   mutable std::mutex mtx_;
 };
 
-} // namespace WgForge
+}  // namespace WgForge
 
-#endif // __WGFORGE_SQLITEDBMANAGER_H__
+#endif  // __WGFORGE_SQLITEDBMANAGER_H__

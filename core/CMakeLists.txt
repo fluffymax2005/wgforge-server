@@ -29,29 +29,50 @@ if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
 endif()
 
+# External libs
 find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
-find_package(SQLite3 REQUIRED)
+#find_package(SQLite3 REQUIRED)
 find_package(wgcpp REQUIRED)
 
-add_library(${CORE_NAME} STATIC
-    src/sqlite_db_manager.cpp
-    src/sqlite_error_handler.cpp
-    src/config_error_handler.cpp
-    src/config_manager.cpp
-    src/peer_config.cpp
-    src/subnetscanner.cpp
-    src/inetutils.cpp
+# ODB
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ODB_CORE REQUIRED IMPORTED_TARGET libodb)
+pkg_check_modules(ODB_SQLITE REQUIRED IMPORTED_TARGET libodb-sqlite)
+
+set(ODB_GENERATED_SOURCES_DIR entities/include/generated)
+set(ODB_GENERATED_SOURCES
+    ${ODB_GENERATED_SOURCES_DIR}/peer-odb.cxx
+    ${ODB_GENERATED_SOURCES_DIR}/allowedip-odb.cxx
+)
+
+
+add_library(${CORE_NAME}
+    STATIC
+        src/sqlite_db_manager.cpp
+        src/sqlite_error_handler.cpp
+        src/config_error_handler.cpp
+        src/config_manager.cpp
+        src/subnetscanner.cpp
+        src/inetutils.cpp
+
+        entities/src/peer_config.cpp
+        ${ODB_GENERATED_SOURCES}
+
 )
 
 target_include_directories(${CORE_NAME}
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/entities/include
+        ${ODB_GENERATED_SOURCES_DIR}
         /usr/include/libnl3/
 )
 
 target_link_libraries(${CORE_NAME}
     PUBLIC
-       SQLite3::SQLite3
+    #SQLite3::SQLite3
+       PkgConfig::ODB_CORE
+       PkgConfig::ODB_SQLITE
        econf
        wgcpp
 )

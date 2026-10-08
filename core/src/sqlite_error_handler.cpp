@@ -24,6 +24,8 @@
 
 #include <stdexcept>
 
+#include "wgforge.h"
+
 namespace WgForge {
 
 std::string SQLiteErrorHandler::toString(SQLiteDbManager::SQLiteReturnCode rc, bool* ok) {
@@ -63,4 +65,4 @@ void SQLiteErrorHandler::throwIfError(SQLiteDbManager::SQLiteReturnCode rc) {
 	throw std::runtime_error(toString(rc));
 }
 
-} // namespace WgForge
+}  // namespace WgForge
