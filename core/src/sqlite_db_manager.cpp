@@ -259,7 +259,7 @@ std::vector<std::string> SQLiteDbManager::getAllPeersAddresses(SQLiteReturnCode*
 
 	std::vector<std::string> addresses;
 	for (const auto& peer_rec : result) {
-	  addresses.push_back(peer_rec.cidr);
+	  addresses.push_back(peer_rec.tunnel_address);
 	}
 
 	t.commit();

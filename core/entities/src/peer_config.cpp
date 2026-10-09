@@ -27,17 +27,17 @@ namespace WgForge {
 PeerConfig::operator json::object() const& {
   json::object o;
   o["id"] = record.id;
-  o["public_key"] = record.public_key;
+  o["publicKey"] = record.public_key;
   if (record.preshared_key)
-	o["preshared_key"] = *record.preshared_key;
-  o["CIDR"] = record.cidr;
-  o["persistent_keepalive"] = record.persistent_keepalive;
+	o["presharedKey"] = *record.preshared_key;
+  o["tunnelAddress"] = record.tunnel_address;
+  o["persistentKeepalive"] = record.persistent_keepalive;
   o["description"] = record.description;
-  o["created_at"] = record.created_at;
+  o["createdAt"] = record.created_at;
   if (record.updated_at)
-	o["updated_at"] = *record.updated_at;
+	o["updatedAt"] = *record.updated_at;
   if (record.deleted_at)
-	o["deleted_at"] = *record.deleted_at;
+	o["deletedAt"] = *record.deleted_at;
 
   json::array arr;
   arr.reserve(allowed_ips.size());
@@ -54,7 +54,7 @@ PeerConfig::operator json::object() && {
   o["public_key"] = std::move(record.public_key);
   if (record.preshared_key)
 	o["preshared_key"] = std::move(*record.preshared_key);
-  o["CIDR"] = std::move(record.cidr);
+  o["tunnel_address"] = std::move(record.tunnel_address);
   o["persistent_keepalive"] = record.persistent_keepalive;
   o["description"] = std::move(record.description);
   o["created_at"] = std::move(record.created_at);

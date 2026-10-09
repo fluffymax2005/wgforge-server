@@ -35,6 +35,13 @@ namespace WgForge {
 #pragma db object table("Peers")
 
 struct Peer {
+  enum class Status : uint8_t {
+	Active = 0,  //< Peer is active, tunnel_address in use
+	Suspended,   //< Peer is suspended, tunnel_address is reserved for it
+	Revoked,     //< Peer is not used any more (for audit)
+	Archived     //< Same as Status::Revoked but not shown in UI
+  };
+
 #pragma db id auto column("Id")
   int64_t id;
 
@@ -44,13 +51,16 @@ struct Peer {
 #pragma db column("Preshared_key") type("TEXT") unique options("CHECK(length(Preshared_key) = 44)")
   std::optional<std::string> preshared_key;
 
-#pragma db column("CIDR") type("TEXT")
-  std::string cidr;
+#pragma db column("Status") type
+  Status status;
+
+#pragma db column("Tunnel_address") type("TEXT")
+  std::string tunnel_address;
 
 #pragma db column("Persistent_keepalive") options("CHECK(Persistent_keepalive BETWEEN 1 AND 65535)")
   uint16_t persistent_keepalive;
 
-#pragma db column("Description") type("VARCHAR(25)")
+#pragma db column("Description") type("VARCHAR(50)")
   std::string description;
 
 #pragma db column("Created_at") type("DATETIME") default("CURRENT_TIMESTAMP")
