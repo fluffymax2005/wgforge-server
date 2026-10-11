@@ -27,136 +27,57 @@
 #include <libeconf.h>
 #include <sqlite3.h>
 
-#include <cerrno>
 #include <filesystem>
 #include <format>
+#include <odb/query.hxx>
 #include <unordered_set>
 
 #include "config_error_handler.h"
 #include "config_read_write_register.h"
 #include "config_write_functions.h"
 #include "config_write_register.h"
-#include "handlers.h"
 #include "inetutils.h"
-#include "sqlite_error_handler.h"
+#include "peer-odb.hxx"
 #include "subnetscanner.h"
+#include "wgforge.h"
 
 namespace WgForge {
 
-void setup_database(SQLiteDbManager& db) {
-  // SQL queries
-  constexpr const char CREATE_PEERS[] = R"(
-    BEGIN TRANSACTION;
-    CREATE TABLE IF NOT EXISTS Peers (
-        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-        Public_key TEXT UNIQUE NOT NULL CHECK(length(Public_key) = 44),
-        Preshared_key TEXT CHECK(length(Preshared_key) = 44),
-        CIDR TEXT NOT NULL,
-        Persistent_keepalive INTEGER NOT NULL CHECK(Persistent_keepalive BETWEEN 1 AND 65535),
-        Description VARCHAR(25),
-        Created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        Updated_at DATETIME,
-        Deleted_at DATETIME
-    );
-  )";
 
-  constexpr const char CREATE_ALLOWEDIPS[] = R"(
-    CREATE TABLE IF NOT EXISTS AllowedIPs (
-        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-        Peer_id INTEGER NOT NULL,
-        CIDR TEXT NOT NULL,
-        Created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        Deleted_at DATETIME,
-        FOREIGN KEY (Peer_id) REFERENCES Peers(Id) ON DELETE CASCADE
-    );
-    COMMIT;
-  )";
 
-  // Making requests
-  SQLiteDbManager::SQLiteReturnCode rc = db.rawSql(CREATE_PEERS);
-  if (rc) {
-	db.rawSql("ROLLBACK;");
-	throw std::runtime_error(
-	    std::format("Failed to create Peers table. {}", SQLiteErrorHandler::toString(rc)));
+
+void setup_wginterface(WgInterface& iface, odb::database& context, const InterfaceConfig& config) {
+  if (config.checkSubnet && !SubnetScanner::isSubnetFree(config.addr))
+	throw std::invalid_argument(std::format("Provided subnet \"{}\" contains host", config.addr));
+
+  auto peers_query = context.query<Peer>(odb::query<Peer>::deleted_at.is_null() &&
+                                         odb::query<Peer>::status == Peer::Status::Active);
+  if (!peers_query.empty()) {
+	for (const auto& peer : peers_query) {
+	  WgPeer wgpeer;
+
+	  try {
+		wgpeer.setPublicKey(WgPublicKey(peer.public_key));
+		wgpeer.setPersistentKeepAlive(peer.persistent_keepalive);
+		if (peer.preshared_key)
+		  wgpeer.setPresharedKey(WgPresharedKey(peer.preshared_key.value()));
+		wgpeer.addAllowedIP(WgAllowedIP(peer.tunnel_address));
+
+		iface.addPeer(std::move(wgpeer));
+	  } catch (const std::exception&) {
+		throw std::runtime_error(std::format(
+		    "Failed to apply changes to kernel for peer with public key: {}", peer.public_key));
+	  }
+	}
   }
 
-  if ((rc = db.rawSql(CREATE_ALLOWEDIPS))) {
-	db.rawSql("ROLLBACK;");
-	throw std::runtime_error(
-	    std::format("Failed to create AllowedIPs table. {}", SQLiteErrorHandler::toString(rc)));
-  }
-}
-
-void setup_endpoints(EndpointArgs& args, RequestHandler& handler) {
-  handler.add_route(http::verb::get, "/interface",
-                    [&](const auto& req, auto& res) { WgForge::interface__get(req, res, args); });
-
-  handler.add_route(http::verb::patch, "/interface",
-                    [&](const auto& req, auto& res) { WgForge::interface__patch(req, res, args); });
-
-  handler.add_route(http::verb::get, "/peers",
-                    [&](const auto& req, auto& res) { WgForge::peers(req, res, args); });
-
-  handler.add_route(http::verb::get, "/peer",
-                    [&](const auto& req, auto& res) { WgForge::peer__get(req, res, args); });
-
-  handler.add_route(http::verb::post, "/peer",
-                    [&](const auto& req, auto& res) { WgForge::peer__post(req, res, args); });
-
-  handler.add_route(http::verb::patch, "/peer",
-                    [&](const auto& req, auto& res) { WgForge::peer__patch(req, res, args); });
-
-  handler.add_route(http::verb::delete_, "/peer",
-                    [&](const auto& req, auto& res) { WgForge::peer__delete(req, res, args); });
-
-  handler.add_route(http::verb::get, "/peer/config",
-                    [&](const auto& req, auto& res) { WgForge::peer_config(req, res, args); });
-  handler.add_route(http::verb::patch, "/peer/rotate",
-                    [&](const auto& req, auto& res) { WgForge::peer_rotate(req, res, args); });
-}
-
-WgForgeServer setup_wgforgeserver(const ConfigManager& config) {
-  auto srvCfg = get_server_config(config);
-
-  if (!InetUtils::isPortFree(srvCfg.addr, srvCfg.listenPort))
-	throw std::invalid_argument(
-	    "[Interface] provided config for IP address and port which are busy");
-
-  return WgForgeServer(srvCfg.addr, std::to_string(srvCfg.listenPort));
-}
-
-WgInterface setup_wginterface(const ConfigManager& config, const SQLiteDbManager& db,
-                              const char name[]) {
-  WgInterface iface(name);
-  auto ifaceCfg = get_iface_config(config, name);
-
-  if (ifaceCfg.checkSubnet && !SubnetScanner::isSubnetFree(ifaceCfg.addr))
-	throw std::invalid_argument(std::format("Provided subnet \"{}\" contains host", ifaceCfg.addr));
-
-  SQLiteDbManager::SQLiteReturnCode rc;
-  auto peers = db.getAllPeers(&rc);
-  if (rc)
-	throw std::runtime_error("Failed to import peers' configs from DB");
-
-  for (const auto& peer : peers) {
-	WgPeer wgpeer;
-
-	wgpeer.setPublicKey(WgPublicKey(peer.record.public_key));
-	wgpeer.setPersistentKeepAlive(peer.record.persistent_keepalive);
-	if (peer.record.preshared_key)
-	  wgpeer.setPresharedKey(WgPresharedKey(*peer.record.preshared_key));
-	wgpeer.addAllowedIP(WgAllowedIP(peer.record.cidr));
-	iface.addPeer(std::move(wgpeer));
-  }
-
-  iface.setListenPort(ifaceCfg.listenPort);
-  iface.setPrivateKey(std::move(ifaceCfg.private_key));
+  iface.setListenPort(config.listenPort);
+  iface.setPrivateKey(WgPrivateKey(config.private_key.toB64String()));
   iface.set();
 
-  InetUtils::assignIpAddress(ifaceCfg);
+  InetUtils::assignIpAddress(config);
 
   iface.bringUp();
-  return iface;
 }
 
 econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode& rc) noexcept {
@@ -286,7 +207,7 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
   return config;
 }  // namespace WgForge
 
-InterfaceConfig get_iface_config(const ConfigManager& config, const char name[]) {
+InterfaceConfig get_iface_config(const ConfigManager& config, const char* name) {
   InterfaceConfig ifaceCfg;
 
   // Extract iface name from config filepath

@@ -34,6 +34,7 @@
 #define __WGFORGE_REQUEST_HANDLER_H__
 
 #include <boost/beast/http.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <string>
 #include <unordered_map>
 
@@ -76,10 +77,22 @@ public:
   void handle_request(const http::request<http::string_body>& req,
                       http::response<http::string_body>& res);
 
+  template<typename Controller, typename Method>
+  void bind_route(http::verb method, const std::string& path,
+                  std::shared_ptr<Controller> controller, Method method_ptr);
+
 private:
   std::unordered_map<RouteKey, HandlerFunc, RouteKeyHash> routes_;
 };
 
-} // namespace WgForge
+template<typename Controller, typename Method>
+void RequestHandler::bind_route(http::verb method, const std::string& path,
+                                std::shared_ptr<Controller> controller, Method method_ptr) {
+  add_route(method, path, [controller, method_ptr](Request req, Response res) {
+	(controller.get()->*method_ptr)(req, res);
+  });
+}
 
-#endif // __WGFORGE_REQUEST_HANDLER_H__
+}  // namespace WgForge
+
+#endif  // __WGFORGE_REQUEST_HANDLER_H__

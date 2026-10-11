@@ -35,39 +35,54 @@ endif()
 
 find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
 find_package(wgcpp REQUIRED)
-find_package(SQLite3 REQUIRED)
+find_package(spdlog REQUIRED)
 
 add_executable(${PROJECT_NAME}
-    src/main.cpp
-    src/initializer.cpp
+    entrypoint/main.cpp
+    entrypoint/initializer.cpp
 
     http_server/src/connection.cpp
     http_server/src/connection_manager.cpp
-    http_server/src/handlers.cpp
     http_server/src/request_handler.cpp
     http_server/src/wgforgeserver.cpp
-    http_server/src/endpoint_tools.cpp
+
+    classes/spdlogger.cpp
+    classes/configuration_root.cpp
+    classes/configuration_section.cpp
+
+    controllers/peer_controller.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-    include/
+    entrypoint/
+    exceptions/
     http_server/include/
+    interfaces/
+    repositories/
+    classes/
+    controllers/
+    dto/
+    services/
     /usr/include/libnl3/
 )
+
+# Add Boost.DI (boost-ext library)
+add_subdirectory(libs/Boost.DI)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         Boost::boost
         Boost::json
         Boost::url
-        SQLite3::SQLite3
+        Boost.DI
         wgcpp
         econf
         nl-3
         nl-route-3
         wgforge-core
         curl
+        spdlog
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)

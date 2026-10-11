@@ -1,0 +1,171 @@
+/*
+ * main.cpp
+ * wgforge-server — Backend to manage Wireguard
+ * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
+ * <santech_montage@mail.ru>
+ *
+ * This file is part of wgforge.
+ *
+ * wgforge-server is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version.
+ *
+ * wgforge-server is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <boost/beast/http/verb.hpp>
+#include <boost/di.hpp>
+#include <exception>
+#include <format>
+#include <iostream>
+#include <memory>
+#include <odb/sqlite/database.hxx>
+#include <string>
+
+#include "config_error_handler.h"
+#include "config_manager.h"
+#include "configuration_root.h"
+#include "ilogger.h"
+#include "initializer.h"
+#include "ipeerservice.h"
+#include "peer_controller.h"
+#include "peer_service.h"
+#include "request_handler.h"
+#include "spdlogger.h"
+#include "wgforgeserver.h"
+#include "wireguard_interface_controller.h"
+
+namespace di = boost::di;
+namespace http = boost::beast::http;
+
+int main(int argc, char* argv[]) {
+  if (argc != 2) {
+	std::cerr << "Usage: wgforgeserver <interface_name>\n";
+	std::cerr << "  For example: " << argv[0] << " wg0\n";
+	return 1;
+  }
+
+  const std::string iface_name = argv[1];
+
+  try {
+	// Filepaths
+	const std::string conf_path = std::format("/etc/wgforge/{}.conf", iface_name);
+	const std::string db_path = std::format("/var/lib/wgforge/{}.sqlite", iface_name);
+
+	// Logger
+	auto spd_logger = std::make_shared<WgForge::SpdLogger>();
+	spd_logger->info("Starting wgforge-server initialization...");
+
+	// Configuration files (.conf)
+	spd_logger->info("Loading configuration file: " + conf_path);
+	auto config_manager = std::make_shared<WgForge::ConfigManager>();
+	config_manager->open(conf_path, false);
+
+	WgForge::ConfigManager::ConfigReturnCode cfg_rc{};
+	if (!config_manager->isOpen()) {
+	  cfg_rc = config_manager->create(conf_path, WgForge::create_config);
+	}
+	WgForge::ConfigErrorHandler::throwIfError(cfg_rc);
+
+	// ODB (SQLite)
+	spd_logger->info("Opening SQLite database: " + db_path);
+	auto db_context = std::make_shared<odb::sqlite::database>(
+	    db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+
+	// Wireguard iface
+	spd_logger->info("Binding Wireguard interface: " + iface_name);
+	auto wg_interface = std::make_shared<WgForge::WgInterface>(iface_name.c_str());
+
+	const auto iface_cfg = WgForge::get_iface_config(*config_manager, iface_name.c_str());
+	WgForge::setup_wginterface(*wg_interface, *db_context, iface_cfg);
+
+	// IConfiguration
+	auto configuration = std::make_shared<WgForge::Configuration>();
+	configuration->getSection("Interface")["Address"] = iface_cfg.addr;
+	configuration->getSection("Interface")["ListenPort"] = iface_cfg.listenPort;
+	configuration->getSection("Interface")["PrivateKey"] = iface_cfg.private_key.toB64String();
+	configuration->getSection("Interface")["CheckSubnet"] = iface_cfg.checkSubnet;
+	configuration->getSection("Interface")["Name"] = iface_cfg.name;
+	configuration->getSection("Interface")["Protocol"] =
+	    iface_cfg.proto_type == Protocol::IPv4 ? "IPv4" : "IPv6";
+
+	const auto srv_cfg = WgForge::get_server_config(*config_manager);
+	configuration->getSection("Server")["Address"] = srv_cfg.addr;
+	configuration->getSection("Server")["ListenPort"] = srv_cfg.listenPort;
+
+
+	// Dependency Injection
+	spd_logger->info("Building Dependency Injection Graph...");
+
+	const auto injector = di::make_injector(
+	    // Bind to instances
+	    di::bind<odb::database>().to(db_context), di::bind<WgForge::WgInterface>().to(wg_interface),
+	    di::bind<WgForge::ConfigManager>().to(config_manager),
+	    di::bind<WgForge::IConfiguration>().to(configuration),
+
+	    // Logger as Singleton
+	    di::bind<WgForge::ILogger>().to(spd_logger),
+
+	    di::bind<WgForge::IPeerService>().to<WgForge::PeerService>(),
+
+	    // Controllers
+	    di::bind<WgForge::PeerController>().to<WgForge::PeerController>(),
+	    di::bind<WgForge::WireguardInterfaceController>()
+	        .to<WgForge::WireguardInterfaceController>());
+
+	// Resolving controllers and binding routes
+	spd_logger->info("Resolving Controllers and binding HTTP routes...");
+
+	auto peer_controller = injector.create<std::shared_ptr<WgForge::PeerController>>();
+	auto iface_controller =
+	    injector.create<std::shared_ptr<WgForge::WireguardInterfaceController>>();
+
+	WgForge::RequestHandler request_handler;
+
+	// PeerController routes
+	request_handler.bind_route(http::verb::get, "/peer", peer_controller,
+	                           &WgForge::PeerController::getPeer);
+	request_handler.bind_route(http::verb::get, "/peers", peer_controller,
+	                           &WgForge::PeerController::getAllPeers);
+	request_handler.bind_route(http::verb::post, "/peer", peer_controller,
+	                           &WgForge::PeerController::createPeer);
+	request_handler.bind_route(http::verb::patch, "/peer", peer_controller,
+	                           &WgForge::PeerController::updatePeer);
+	request_handler.bind_route(http::verb::delete_, "/peer", peer_controller,
+	                           &WgForge::PeerController::deletePeer);
+	request_handler.bind_route(http::verb::patch, "/peer/rotate", peer_controller,
+	                           &WgForge::PeerController::rotatePeerKey);
+	request_handler.bind_route(http::verb::get, "/peer/config", peer_controller,
+	                           &WgForge::PeerController::getPeersConfig);
+
+	// WireguardInterfaceController routes
+	request_handler.bind_route(http::verb::get, "/interface", iface_controller,
+	                           &WgForge::WireguardInterfaceController::getInfo);
+	request_handler.bind_route(http::verb::patch, "/interface", iface_controller,
+	                           &WgForge::WireguardInterfaceController::updateConfig);
+
+
+	// Starting HTTP server
+	spd_logger->info(
+	    std::format("Starting HTTP Server on {}:{}", srv_cfg.addr, srv_cfg.listenPort));
+
+	WgForge::WgForgeServer server(srv_cfg.addr, std::to_string(srv_cfg.listenPort));
+	server.setHandler(std::move(request_handler));
+
+	spd_logger->info("Server successfully started and ready to accept connections!");
+	server.run();
+
+  } catch (const std::exception& e) {
+	std::cerr << "[FATAL ERROR] " << e.what() << std::endl;
+	return 1;
+  }
+
+  return 0;
+}
