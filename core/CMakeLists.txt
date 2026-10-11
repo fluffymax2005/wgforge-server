@@ -39,7 +39,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(ODB_CORE REQUIRED IMPORTED_TARGET libodb)
 pkg_check_modules(ODB_SQLITE REQUIRED IMPORTED_TARGET libodb-sqlite)
 
-set(ODB_GENERATED_SOURCES_DIR entities/include/generated)
+set(ODB_GENERATED_SOURCES_DIR entities/generated)
 set(ODB_GENERATED_SOURCES
     ${ODB_GENERATED_SOURCES_DIR}/peer-odb.cxx
     ${ODB_GENERATED_SOURCES_DIR}/allowedip-odb.cxx
@@ -55,15 +55,17 @@ add_library(${CORE_NAME}
         src/subnetscanner.cpp
         src/inetutils.cpp
 
-        entities/src/peer_config.cpp
+        entities/peer_config.cpp
+        entities/peer.cpp
+        entities/allowedip.cpp
         ${ODB_GENERATED_SOURCES}
 
 )
 
 target_include_directories(${CORE_NAME}
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/entities/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/
+        ${CMAKE_CURRENT_SOURCE_DIR}/entities/
         ${ODB_GENERATED_SOURCES_DIR}
         /usr/include/libnl3/
 )

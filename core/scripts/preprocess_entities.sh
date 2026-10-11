@@ -5,7 +5,7 @@ set -e
 ENTITY_ARG="$1"
 DBMS="${2:-sqlite}"
 BASE_DIR=".."
-OUTPUT_DIR="${BASE_DIR}/entities/include/generated"
+OUTPUT_DIR="${BASE_DIR}/entities/generated"
 
 if [[ -z "$ENTITY_ARG" ]]; then
     echo "Usage: bash preprocess_entities {entity|*} [DBMS] [FLAGS...]"
@@ -36,7 +36,7 @@ fi
 mkdir -p "$OUTPUT_DIR"
 
 for ENTITY in "${ENTITIES[@]}"; do
-    FILE_PATH="${BASE_DIR}/entities/include/${ENTITY}.hxx"
+    FILE_PATH="${BASE_DIR}/entities/${ENTITY}.hxx"
 
     if [[ ! -f "$FILE_PATH" ]]; then
         echo "Error: File $FILE_PATH does not exist!"
