@@ -37,20 +37,6 @@
 
 namespace WgForge {
 
-// SQLiteDbManager
-
-#define WGFORGE_DATABASE_OK                 SQLITE_OK  ///< Database operation succeded
-#define WGFORGE_INVALID_ARGUMENT            -1         ///< Invalid argument provided
-#define WGFORGE_RUNTIME_ERROR               -2         ///< Runtime error occured
-#define WGFORGE_RECORD_EXIST                -3         ///< Record already exists
-#define WGFORGE_CONNECTION_CLOSED           -4         ///< Database connection closed
-#define WGFORGE_PEER_EXIST                  -5         ///< Peer already exists
-#define WGFORGE_PEER_NOT_EXIST              -6         ///< Peer doesn't exist
-#define WGFORGE_ALLOWEDIP_EXIST             -7         ///< Allowedip already exists
-#define WGFORGE_ALLOWEDIP_NOT_EXIST         -8         ///< Allowedip doesn't exist
-#define WGFORGE_DATABASE_READONLY           -9         ///< Database opened in readonly mode
-#define WGFORGE_DATABASE_STRATEGY_NO_TARGET -10        ///< Empty strategy (functor) provided
-
 // ConfigManager
 
 #define WGFORGE_CONFIG_OK                   ECONF_SUCCESS  ///< Config operation succeded
@@ -81,28 +67,6 @@ using WgPublicKey = WgPublicKey<__THREAD_SAFETY__>;
 using WgPresharedKey = WgPresharedKey<__THREAD_SAFETY__>;
 using WgAllowedIP = WgAllowedIP<__THREAD_SAFETY__>;
 using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
-
-// Core structures
-
-/**
- * @brief Wireguard iface configuration
- */
-struct InterfaceConfig {
-  char addr[INET_ADDRSTRLEN];  ///< IPv4 address
-  WgPrivateKey private_key;    ///< Private key
-  char name[IFNAMSIZ];         ///< Name
-  in_port_t listenPort;        ///< Listen port
-  Protocol proto_type;         ///< Protocol type listening on. Reserved for future
-  bool checkSubnet;            ///< Whether daemon check subnet occupation on startup
-};
-
-/**
- * @brief HTTP server configuration
- */
-struct ServerConfig {
-  char addr[INET_ADDRSTRLEN];  ///< Listening address
-  in_port_t listenPort;        ///< Listen port
-};
 
 }  // namespace WgForge
 

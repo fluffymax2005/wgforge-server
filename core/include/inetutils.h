@@ -23,7 +23,7 @@
 #ifndef __WGFORGE_INETUTILS_H__
 #define __WGFORGE_INETUTILS_H__
 
-#include "wgforge.h"
+#include "interface_config.h"
 
 namespace WgForge {
 

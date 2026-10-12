@@ -74,10 +74,22 @@ struct Peer {
 
 #pragma db column("Deleted_at") type("DATETIME")
   std::optional<std::string> deleted_at;
-
-  operator json::object() const&;
-  operator json::object() &&;
 };
+
+inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) {
+  jv = json::object{
+      {                 "id",                         peer.id},
+      {          "publicKey",                 peer.public_key},
+      {       "presharedKey", peer.preshared_key.value_or("")},
+      {             "status",   static_cast<int>(peer.status)},
+      {      "tunnelAddress",             peer.tunnel_address},
+      {"persistentKeepalive",       peer.persistent_keepalive},
+      {        "description",                peer.description},
+      {          "createdAt",                 peer.created_at},
+      {          "updatedAt",    peer.updated_at.value_or("")},
+      {          "deletedAt",    peer.deleted_at.value_or("")}
+  };
+}
 
 }  // namespace WgForge
 

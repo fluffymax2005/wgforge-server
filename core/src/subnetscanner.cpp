@@ -166,7 +166,7 @@ std::optional<std::string> SubnetScanner::scanSubnetClass(uint32_t range_start, 
 	char ip_str[INET_ADDRSTRLEN];
 	inet_ntop(AF_INET, &addr, ip_str, sizeof(ip_str));
 
-	char cidr_str[INET_ADDRSTRLEN + 1 + 2]; // INET_ADDRSTRLEN + '/' + "32" at maximum length
+	char cidr_str[INET_ADDRSTRLEN + 1 + 2];  // INET_ADDRSTRLEN + '/' + "32" at maximum length
 	std::snprintf(cidr_str, sizeof(cidr_str), "%s/%d", ip_str, suffix);
 
 	auto result = isSubnetFree(cidr_str, timeout_seconds);

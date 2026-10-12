@@ -48,16 +48,11 @@ set(ODB_GENERATED_SOURCES
 
 add_library(${CORE_NAME}
     STATIC
-        src/sqlite_db_manager.cpp
-        src/sqlite_error_handler.cpp
         src/config_error_handler.cpp
         src/config_manager.cpp
         src/subnetscanner.cpp
         src/inetutils.cpp
 
-        entities/peer_config.cpp
-        entities/peer.cpp
-        entities/allowedip.cpp
         ${ODB_GENERATED_SOURCES}
 
 )
@@ -72,7 +67,6 @@ target_include_directories(${CORE_NAME}
 
 target_link_libraries(${CORE_NAME}
     PUBLIC
-    #SQLite3::SQLite3
        PkgConfig::ODB_CORE
        PkgConfig::ODB_SQLITE
        econf

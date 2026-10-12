@@ -1,5 +1,5 @@
 /*
- * allowedip.cpp
+ * interface_config.h
  * wgforge-core — Core library for wgforge-server (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
@@ -20,34 +20,31 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "allowedip.hxx"
+#ifndef __WGFORGE_INTERFACE_CONFIG_H__
+#define __WGFORGE_INTERFACE_CONFIG_H__
+
+#include <net/if.h>
+#include <netinet/in.h>
+
+#include <wgallowedip.hpp>
+
+#include "wgforge.h"
 
 namespace WgForge {
 
-AllowedIP::operator json::object() const& {
-  json::object o;
-
-  o["id"] = id;
-  o["peerId"] = peer_id;
-  o["cidr"] = cidr;
-  o["createdAt"] = created_at;
-  o["updatedAt"] = updated_at.value_or(std::string());
-  o["deletedAt"] = deleted_at.value_or(std::string());
-
-  return o;
-}
-
-AllowedIP::operator json::object() && {
-  json::object o;
-
-  o["id"] = id;
-  o["peerId"] = peer_id;
-  o["cidr"] = std::move(cidr);
-  o["createdAt"] = std::move(created_at);
-  o["updatedAt"] = std::move(updated_at.value_or(std::string()));
-  o["deletedAt"] = std::move(deleted_at.value_or(std::string()));
-
-  return o;
-}
+/**
+ * @brief Wireguard iface configuration
+ */
+struct InterfaceConfig {
+  char addr[INET_ADDRSTRLEN];  ///< IPv4 address
+  WgPrivateKey private_key;    ///< Private key
+  char name[IFNAMSIZ];         ///< Name
+  in_port_t listenPort;        ///< Listen port
+  Protocol proto_type;         ///< Protocol type listening on. Reserved for future
+  bool checkSubnet;            ///< Whether daemon check subnet occupation on startup
+};
 
 }  // namespace WgForge
+
+
+#endif  // __WGFORGE_INTERFACE_CONFIG_H__

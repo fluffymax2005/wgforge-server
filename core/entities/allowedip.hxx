@@ -24,6 +24,7 @@
 #define __WGFORGE_ALLOWEDIP_H__
 
 #include <boost/json.hpp>
+#include <boost/json/conversion.hpp>
 #include <optional>
 #include <string>
 
@@ -54,10 +55,21 @@ struct AllowedIP {
 
 #pragma db column("Deleted_at") type("DATETIME")
   std::optional<std::string> deleted_at;
-
-  operator json::object() const&;
-  operator json::object() &&;
 };
+
+inline void tag_invoke(json::value_from_tag, json::value& jv, const AllowedIP& allowedip) {
+  json::object o;
+
+  o["id"] = allowedip.id;
+  o["peerId"] = allowedip.peer_id;
+  o["cidr"] = allowedip.cidr;
+  o["createdAt"] = allowedip.created_at;
+  o["updatedAt"] = allowedip.updated_at.value_or("");
+  o["deletedAt"] = allowedip.deleted_at.value_or("");
+
+
+  jv = std::move(o);
+}
 
 }  // namespace WgForge
 
