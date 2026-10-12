@@ -1,5 +1,5 @@
 /*
- * creat_peer_request.hpp
+ * create_peer_request.hpp
  * wgforge-server — Backend to manage Wireguard
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CREATE_PEER_REQUEST_H__
-#define __WGFORGE_CREATE_PEER_REQUEST_H__
+#ifndef __WGFORGE_CREATE_PEER_REQUEST_HPP__
+#define __WGFORGE_CREATE_PEER_REQUEST_HPP__
 
 #include <boost/json.hpp>
 #include <cstdint>
@@ -29,12 +29,12 @@
 #include <string>
 #include <vector>
 
+#include "defines.h"
+#include "endpoint_invalid_argument.h"
 #include "json_extensions.hpp"
 #include "wgforge.h"
 
 namespace WgForge {
-
-namespace json = boost::json;
 
 struct CreatePeerRequest {
   bool generate_preshared_key = true;

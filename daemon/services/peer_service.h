@@ -29,21 +29,25 @@
 #include "iconfiguration_section.h"
 #include "ilogger.h"
 #include "ipeerservice.h"
+#include "peer_config_request.hpp"
 #include "wgforge.h"
 
 namespace WgForge {
 
-class PeerService : public IPeerService {
+class PeerService : public IPeerServiceAsync {
 public:
   explicit PeerService(std::shared_ptr<odb::database> context, std::shared_ptr<WgInterface> iface,
                        std::shared_ptr<ConfigManager> config_mgr, std::shared_ptr<ILogger> logger,
                        std::shared_ptr<IConfiguration> configuration);
 
   virtual std::future<std::optional<Peer>> getPeerAsync(const Key& key) const override;
+  virtual std::future<std::optional<Peer>> getPeerByPublicKey(std::string_view key) const override;
   virtual std::future<std::optional<std::vector<Peer>>> getAllAsync() const override;
   virtual std::future<CreatePeerResponse> createPeerAsync(const CreatePeerRequest& req) override;
   virtual std::future<void> softDeleteAsync(const Key& key) override;
   virtual std::future<void> hardDeleteAsync(const Key& key) override;
+
+  virtual std::future<void> updateAsync(const UpdatePeerRequest& req) override;
 
   virtual std::future<std::optional<AllowedIP>> getAllowedIP(const Key& key) const override;
   virtual std::future<std::optional<std::vector<AllowedIP>>> getAllAllowedIPs(
@@ -55,6 +59,9 @@ public:
                                                      std::string_view allowedip) override;
   virtual std::future<void> softDeleteAllowedIPsAsync(
       const Key& key, const std::vector<std::string>& allowedips) override;
+
+  virtual std::future<void> rotatePublicKeyAsync(const RotatePeerPublicKeyRequest& req) override;
+  virtual std::future<std::string> getPeerConfigAsync(const PeerConfigRequest& req) override;
 
 private:
   std::shared_ptr<odb::database> context_;

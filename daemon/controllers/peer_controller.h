@@ -26,14 +26,15 @@
 #include <memory.h>
 
 #include "defines.h"
+#include "iexceptionhandle.h"
 #include "ilogger.h"
 #include "ipeerservice.h"
 
 namespace WgForge {
 
-class PeerController {
+class PeerController : IExceptionHandle {
 public:
-  PeerController(std::shared_ptr<IPeerService> peer_service, std::shared_ptr<ILogger> logger);
+  PeerController(std::shared_ptr<IPeerServiceAsync> peer_service, std::shared_ptr<ILogger> logger);
 
   void getPeer(Request req, Response res);
   void getAllPeers(Request req, Response res);
@@ -45,10 +46,10 @@ public:
 
 
 private:
-  std::shared_ptr<IPeerService> peer_service_;
+  std::shared_ptr<IPeerServiceAsync> peer_service_;
   std::shared_ptr<ILogger> logger_;
 
-  void handleException(std::exception_ptr ep, Response& res);
+  virtual void handleException(std::exception_ptr ep, Request req, Response& res) override;
 };
 
 }  // namespace WgForge

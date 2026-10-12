@@ -23,8 +23,10 @@
 #ifndef __WGFORGE_CREATE_PEER_RESPONSE_HPP__
 #define __WGFORGE_CREATE_PEER_RESPONSE_HPP__
 
+#include <boost/json.hpp>
 #include <string>
 
+#include "defines.h"
 #include "peer.hxx"
 
 namespace WgForge {
@@ -33,6 +35,13 @@ struct CreatePeerResponse {
   Peer peer;
   std::string private_key;
 };
+
+inline void tag_invoke(json::value_from_tag, json::value& jv, const CreatePeerResponse& res) {
+  jv = json::object{
+      {      "peer",        res.peer},
+      {"privateKey", res.private_key}
+  };
+}
 
 }  // namespace WgForge
 

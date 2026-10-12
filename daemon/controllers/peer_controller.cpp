@@ -22,9 +22,17 @@
 
 #include "peer_controller.h"
 
+#include <boost/url/decode.hpp>
+#include <boost/url/impl/parse.hpp>
+
+#include "endpoint_notfound.h"
+#include "endpoint_runtime_error.h"
+#include "ipeerservice.h"
+#include "rotate_peer_public_key_request.hpp"
+
 namespace WgForge {
 
-PeerController::PeerController(std::shared_ptr<IPeerService> peer_service,
+PeerController::PeerController(std::shared_ptr<IPeerServiceAsync> peer_service,
                                std::shared_ptr<ILogger> logger) {
   if (peer_service == nullptr)
 	throw std::invalid_argument("Peer service is nullptr");
@@ -42,12 +50,7 @@ void PeerController::getPeer(Request req, Response res) {
 	return;
   }
 
-  auto& db = args.db;
-  auto& iface = args.iface;
-  constexpr const char* URI = "/peer";
-  constexpr const char* METHOD = "GET";
   std::exception_ptr ep;
-
   try {
 	const auto& target = req.target();
 	auto r = boost::urls::parse_origin_form(target);
@@ -68,27 +71,19 @@ void PeerController::getPeer(Request req, Response res) {
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 	}
 
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
+	auto peer = peer_service_->getPeerByPublicKey(public_key).get();
+	if (!peer.has_value())
 	  throw EndpointNotFound("Peer not found");
 
-	PeerConfig peer;
-	SQLiteDbManager::SQLiteReturnCode rc = db.getPeer(public_key, peer);
-	if (rc) {
-	  if (rc == SQLITE_DONE)
-		throw EndpointNotFound("Peer not found");
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-	}
-
-	json::object o = std::move(peer);
 
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(o);
+	res.body() = json::serialize(json::value_from(peer.value()));
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
 
-  handleEndpointException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -101,25 +96,16 @@ void PeerController::getAllPeers(Request req, Response res) {
 	return;
   }
 
-  auto& db = args.db;
-  constexpr const char* URI = "/peers";
-  constexpr const char* METHOD = "GET";
   std::exception_ptr ep;
-
   try {
 	json::object j;
 	json::array arr;
 
-	SQLiteDbManager::SQLiteReturnCode rc;
-	const auto peers = db.getAllPeers(&rc);
-	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
+	auto peers_opt = peer_service_->getAllAsync().get();
+	if (!peers_opt.has_value())
+	  throw EndpointNotFound("Peers not presented");
 
-	for (auto& peer : peers) {
-	  arr.emplace_back(std::move(peer));
-	}
-
-	j["peers"] = std::move(arr);
+	j["peers"] = json::value_from(std::move(peers_opt.value()));
 
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
@@ -128,7 +114,7 @@ void PeerController::getAllPeers(Request req, Response res) {
 	ep = std::current_exception();
   }
 
-  handleException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -141,114 +127,19 @@ void PeerController::createPeer(Request req, Response res) {
 	return;
   }
 
-  auto handleFillPeerConfig = [](const json::object& j) -> PeerConfig {
-	PeerConfig peer;
-  };
-
-  PeerConfig config;
-  constexpr const char* URI = "/peer";
-  constexpr const char* METHOD = "POST";
   std::exception_ptr ep;
-
   try {
 	auto j = json::parse(req.body()).as_object();
-
-	WgPrivateKey private_key;
-	WgPublicKey public_key(private_key);
-	do {
-	  private_key.generate();
-	  public_key = WgPublicKey(private_key);
-	} while (iface.hasPeerWithPublicKey(public_key));
-
-	std::string public_key_b64 = public_key.toB64String();
-
-	config.record.public_key = public_key_b64;
-
-	// Get whether preshared key should be generated
-	auto preshared_key_opt = get_optional_field<bool>(j, "generatePresharedKey", false);
-	WgPresharedKey preshared_key;
-	if (preshared_key_opt && *preshared_key_opt) {
-	  config.record.preshared_key = preshared_key.toB64String();
-	}
-
-	// Get allowedip
-	auto allowed_ips_opt = get_optional_field<json::array>(j, "allowedIps");
-	if (!allowed_ips_opt || allowed_ips_opt->size() == 0)
-	  throw EndpointInvalidArgument("\"allowedIps\" missing");
-
-	std::vector<WgAllowedIP> allowed_ips;
-	allowed_ips.reserve(allowed_ips_opt->size());
-
-	for (auto& ip : *allowed_ips_opt) {
-	  try {
-		auto& str = ip.as_string();
-		allowed_ips.emplace_back(WgAllowedIP(str.c_str()));
-		config.allowed_ips.emplace_back(std::move(str));
-	  } catch (const boost::system::system_error&) {
-		throw EndpointInvalidArgument("Invalid \"allowedIps\"");
-	  } catch (const std::invalid_argument&) {
-		throw EndpointInvalidArgument("Invalid \"allowedIps\"");
-	  }
-	}
-
-	// Get CIDRs
-	SQLiteDbManager::SQLiteReturnCode db_rc;
-	auto cidrs = db.getAllPeersAddresses(&db_rc);
-	if (db_rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(db_rc), URI, METHOD);
-
-	const auto cidr = InetUtils::findFreeClientTunnelCIDR(iface_cfg.addr, cidrs);
-	if (cidr.length() == 0)
-	  throw EndpointInvalidArgument("Out of interface capacity");
-	config.record.cidr = std::move(cidr);
-
-	// Get persistent keepalive
-	auto persistent_keepalive_opt = get_optional_field<int64_t>(j, "persistentKeepalive", false);
-	if (!persistent_keepalive_opt) {
-	  config.record.persistent_keepalive = 25;
-	} else {
-	  if (*persistent_keepalive_opt > std::numeric_limits<uint16_t>::max() ||
-	      *persistent_keepalive_opt <= 0)
-		throw EndpointInvalidArgument("\"persistentKeepalive\" must be in range [1; 65535]");
-	  config.record.persistent_keepalive = *persistent_keepalive_opt;
-	}
-
-	// Get description
-	auto description_opt = get_optional_field<std::string_view>(j, "description", false);
-	if (description_opt)
-	  config.record.description = std::move(*description_opt);
-
-	auto rc = db.addPeer(config);
-	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-
-	// Generate objects and insert into peer
-	WgPeer peer(&public_key);
-	peer.setPersistentKeepAlive(*persistent_keepalive_opt);
-
-	for (auto& ip : allowed_ips)
-	  peer.addAllowedIP(std::move(ip));
-
-	if (preshared_key_opt)
-	  peer.setPresharedKey(std::move(preshared_key));
-
-	iface.addPeer(std::move(peer));
-
-	json::object o;
-	o["publicKey"] = std::move(public_key_b64);
-	o["privateKey"] = private_key.toB64String();
-	if (preshared_key_opt)
-	  o["presharedKey"] = *config.record.preshared_key;
-	o["cidr"] = cidr;
+	auto record = peer_service_->createPeerAsync(j).get();
 
 	res.result(http::status::created);
 	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(o);
+	res.body() = json::serialize(json::value_from(record));
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
 
-  handleException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -261,12 +152,7 @@ void PeerController::deletePeer(Request req, Response res) {
 	return;
   }
 
-  auto& db = args.db;
-  auto& iface = args.iface;
-  constexpr const char* URI = "/peer";
-  constexpr const char* METHOD = "DELETE";
   std::exception_ptr ep;
-
   try {
 	const auto& target = req.target();
 	auto r = boost::urls::parse_origin_form(target);
@@ -286,21 +172,17 @@ void PeerController::deletePeer(Request req, Response res) {
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key.c_str())))
-	  throw EndpointNotFound("Peer does not exist");
-
-	auto rc = db.deletePeer(public_key.c_str());
-	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-
-	iface.removePeer(WgPublicKey{public_key.c_str()});
+	auto peer = peer_service_->getPeerByPublicKey(public_key).get();
+	if (!peer.has_value())
+	  throw EndpointNotFound("Peer not found");
+	peer_service_->softDeleteAsync(peer.value().id);
 
 	res.result(http::status::no_content);
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
 
-  handleEndpointException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -313,12 +195,7 @@ void PeerController::updatePeer(Request req, Response res) {
 	return;
   }
 
-  auto& iface = args.iface;
-  auto& db = args.db;
-  constexpr const char* URI = "/peer";
-  constexpr const char* METHOD = "PATCH";
   std::exception_ptr ep;
-
   try {
 	const auto& target = req.target();
 	auto r = boost::urls::parse_origin_form(target);
@@ -337,98 +214,17 @@ void PeerController::updatePeer(Request req, Response res) {
 	std::string public_key = boost::urls::decode(key_it->value).value();
 	if (!WgKey::validateB64StringKey(public_key))
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
-	  throw EndpointNotFound("Peer not found");
 
+	auto j = json::parse(req.body()).as_object();
+	peer_service_->updateAsync(j).get();
 
-	uint8_t changes = 0;
-	json::object j = json::parse(req.body()).as_object();
-
-	PeerConfig origin_cfg;
-	auto rc = db.getPeer(public_key, origin_cfg);
-	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-	PeerConfig config = origin_cfg;
-
-
-	auto preshared_key_opt = get_optional_field<std::string_view>(j, "presharedKey", false);
-	if (preshared_key_opt) {
-	  const std::string_view preshared_key_sv = preshared_key_opt->data();
-	  if (!WgKey::validateB64StringKey(preshared_key_sv))
-		throw EndpointInvalidArgument("Invalid \"presharedKey\"");
-	  config.record.preshared_key = preshared_key_sv;
-	  changes++;
-	}
-
-	auto persistent_keepalive_opt = get_optional_field<int64_t>(j, "persistentKeepalive", false);
-	if (persistent_keepalive_opt) {
-	  auto persistent_keepalive = *persistent_keepalive_opt;
-	  if (persistent_keepalive <= 0 ||
-	      persistent_keepalive >= std::numeric_limits<std::uint16_t>::max())
-		throw EndpointInvalidArgument(
-		    "Incorrect \"persistentKeepalive\". It must be in range [1; 65535]");
-	  config.record.persistent_keepalive = persistent_keepalive;
-	  changes++;
-	}
-
-	auto description_opt = get_optional_field<std::string_view>(j, "description", false);
-	if (description_opt) {
-	  config.record.description = *description_opt;
-	  changes++;
-	}
-
-	// Extract "removeAllowedIps" and "addAllowedIps" functor
-	auto getAllowedIpsVec = [&](std::string_view field_name) -> std::vector<std::string> {
-	  auto allowedips_opt = get_optional_field<json::array>(j, field_name, false);
-	  std::vector<std::string> allowedips_vec;
-	  if (allowedips_opt) {
-		auto allowedips = *allowedips_opt;
-		for (const auto& ip : allowedips) {
-		  if (!ip.is_string())
-			throw EndpointInvalidArgument(std::format("Invalid \"{}\"", field_name));
-		  std::string_view ip_sv = ip.as_string().data();
-		  if (!WgAllowedIP::validate(ip_sv.data()))
-			throw EndpointInvalidArgument(
-			    std::format("Incorrect element is \"{}\": \"{}\"", field_name, ip_sv));
-		  allowedips_vec.emplace_back(ip_sv);
-		}
-		changes++;
-	  }
-
-	  return allowedips_vec;
-	};
-
-	auto remove_allowedips_vec = getAllowedIpsVec("removeAllowedIps");
-	auto add_allowedips_vec = getAllowedIpsVec("addAllowedIps");
-
-	PeerRecord peer_record = std::move(config.record);
-	if (changes) {
-	  if ((rc = db.updatePeer(public_key, peer_record)))
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-
-	  peer_record = std::move(origin_cfg.record);
-	  if (remove_allowedips_vec.size() &&
-	      (rc = db.removeAllowedIPs(public_key, remove_allowedips_vec))) {
-		if ((rc = db.updatePeer(public_key, peer_record)))
-		  throw EndpointRuntimeError(
-		      "Failed to remove AllowedIps then failed to recover peer config", URI, METHOD);
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-	  }
-
-	  if (add_allowedips_vec.size() && (rc = db.addAllowedIPs(public_key, add_allowedips_vec))) {
-		if ((rc = db.updatePeer(public_key, peer_record)))
-		  throw EndpointRuntimeError("Failed to add AllowedIps then failed to recover peer config",
-		                             URI, METHOD);
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-	  }
-	}
 
 	res.result(http::status::ok);
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
 
-  handleEndpointException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -441,12 +237,7 @@ void PeerController::rotatePeerKey(Request req, Response res) {
 	return;
   }
 
-  auto& db = args.db;
-  auto& iface = args.iface;
-  constexpr const char* URI = "/peer/rotate";
-  constexpr const char* METHOD = "PATCH";
   std::exception_ptr ep;
-
   try {
 	const auto& target = req.target();
 	auto r = boost::urls::parse_origin_form(target);
@@ -462,57 +253,16 @@ void PeerController::rotatePeerKey(Request req, Response res) {
 	if (old_key_it == params.end())
 	  throw EndpointInvalidArgument("\"oldPublicKey\" not provided");
 	std::string old_key = boost::urls::decode(old_key_it->value).value();
-	if (!WgKey::validateB64StringKey(old_key.c_str()))
-	  throw EndpointInvalidArgument("\"oldPublicKey\" is invalid");
 
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(old_key)))
-	  throw EndpointNotFound("Peer not found");
+	peer_service_->rotatePublicKeyAsync(RotatePeerPublicKeyRequest(old_key)).get();
 
-	WgPrivateKey private_key;
-	WgPublicKey new_public_key(private_key);
-	do {
-	  private_key.generate();
-	  new_public_key = WgPublicKey(private_key);
-	} while (iface.hasPeerWithPublicKey(new_public_key));
-
-	const auto new_key = new_public_key.toB64String();
-
-	auto rc = db.rotatePeerPublicKey(old_key, new_key);
-	if (rc) {
-	  if (rc == WGFORGE_PEER_NOT_EXIST)
-		throw EndpointInvalidArgument(SQLiteErrorHandler::toString(rc));
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-	}
-
-	try {
-	  iface.rotatePeersPublicKey(WgPublicKey(old_key), WgPublicKey(new_key));
-	} catch (const WgException& e) {
-	  if ((rc = db.rotatePeerPublicKey(new_key, old_key)))
-		throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-
-	  auto ec = e.getCode();
-	  if (ec == ENOENT)
-		throw EndpointInvalidArgument("Peer not found");
-	  else
-		throw EndpointRuntimeError(
-		    std::format("Failed to rotate peer's public key \"{}\". Error occured while applying "
-			            "changes to kernel",
-			            old_key),
-		    URI, METHOD);
-	}
-
-	json::object o;
-	o["publicKey"] = std::move(new_key);
-	o["privateKey"] = private_key.toB64String();
-
-	res.body() = json::serialize(o);
 	res.set(http::field::content_type, "application/json");
 	res.result(http::status::ok);
   } catch (const std::exception& e) {
 	ep = std::current_exception();
   }
 
-  handleEndpointException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
@@ -525,13 +275,7 @@ void PeerController::getPeersConfig(Request req, Response res) {
 	return;
   }
 
-  auto& db = args.db;
-  auto& iface = args.iface;
-  const auto& wireguard_cfg = args.wireguard_cfg;
-  constexpr const char* URI = "/peer/config";
-  constexpr const char* METHOD = "GET";
   std::exception_ptr ep;
-
   try {
 	const auto& target = req.target();
 	auto r = boost::urls::parse_origin_form(target);
@@ -548,67 +292,16 @@ void PeerController::getPeersConfig(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
 	std::string public_key = boost::urls::decode(key_it->value).value();
-	if (!WgKey::validateB64StringKey(public_key))
-	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
-	if (!iface.hasPeerWithPublicKey(WgPublicKey(public_key)))
-	  throw EndpointNotFound("Peer not found");
-
 
 	std::string public_endpoint;
-	auto addr_it = params.find("publicEndpoint");
-	if (addr_it != params.end()) {
-	  if (!WgEndpoint::validate(addr_it->value.data()))
-		throw EndpointInvalidArgument("Invalid \"publicEndpoint\"");
-	  public_endpoint = addr_it->value.data();
-	} else {
-	  public_endpoint = wireguard_cfg.public_endpoint;
+	auto endp_it = params.find("publicEndpoint");
+	if (endp_it != params.end()) {
+	  public_endpoint = endp_it->value.data();
 	}
-
-	PeerConfig peer;
-	auto rc = db.getPeer(public_key, peer);
-	if (rc)
-	  throw EndpointRuntimeError(SQLiteErrorHandler::toString(rc), URI, METHOD);
-
-	std::string config;
-	config.reserve(1024);
-	config += std::format(
-	    "# Wireguard Client configuration\n"
-	    "# Provided by WgForge\n\n"
-	    "[Interface]\n"
-	    "# Client Private key - keep this SECRET\n"
-	    "PrivateKey=<PRIVATE_KEY>\n"
-	    "# Client VPN tunnel IP address\n"
-	    "Address={}\n"
-	    "# DNS servers to resolve server domain name (if used)\n"
-	    "DNS=1.1.1.1, 8.8.8.8, 1.0.0.1\n\n",
-	    peer.record.cidr);
-
-	config += std::format(
-	    "[Peer]\n"
-	    "# Server Public key\n"
-	    "PublicKey={}\n"
-	    "# Server Endpoint\n"
-	    "Endpoint={}\n"
-	    "# Keepalive time in seconds for NAT\n"
-	    "PersistentKeepalive={}\n",
-	    iface.getPublicKey()->toB64String(), public_endpoint, peer.record.persistent_keepalive);
-
-	if (peer.record.preshared_key)
-	  config += std::format(
-	      "# Preshared key\n"
-	      "PresharedKey={}",
-	      peer.record.preshared_key->c_str());
-
-	for (auto i = 0; i < peer.allowed_ips.size(); i++) {
-	  if (i == peer.allowed_ips.size() - 1)
-		config += peer.allowed_ips[i];
-	  else
-		config += peer.allowed_ips[i] + ", ";
-	}
-
 
 	json::object j;
-	j["config"] = std::move(config);
+	j["config"] =
+	    peer_service_->getPeerConfigAsync(PeerConfigRequest(public_key, public_endpoint)).get();
 	res.body() = json::serialize(j);
 	res.set(http::field::content_type, "application/json");
 	res.result(http::status::ok);
@@ -616,12 +309,12 @@ void PeerController::getPeersConfig(Request req, Response res) {
 	ep = std::current_exception();
   }
 
-  handleEndpointException(ep, res);
+  handleException(ep, req, res);
 
   res.prepare_payload();
 }
 
-void PeerController::handleException(std::exception_ptr ep, Response& res) {
+void PeerController::handleException(std::exception_ptr ep, Request req, Response& res) {
   try {
 	if (ep)
 	  std::rethrow_exception(ep);
@@ -631,8 +324,17 @@ void PeerController::handleException(std::exception_ptr ep, Response& res) {
 	res.result(http::status::bad_request);
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(j);
-  } catch (const EndpointRuntimeError& e) {
-	log_error(e.getUri(), " [", e.getMethod(), "]: ", e.what());
+  } catch (const boost::system::system_error& e) {
+	json::object j;
+	j["error"] = e.what();
+	res.result(http::status::bad_request);
+	res.set(http::field::content_type, "application/json");
+	res.body() = json::serialize(j);
+  } catch (const std::runtime_error& e) {
+	auto path = std::string(req.target());
+	auto method = std::string(req.method_string());
+	logger_->error(std::format("{} [{}]: {}", path, method, e.what()));
+
 	res.result(http::status::internal_server_error);
   } catch (const EndpointNotFound& e) {
 	json::object o;
@@ -640,14 +342,8 @@ void PeerController::handleException(std::exception_ptr ep, Response& res) {
 	res.result(http::status::not_found);
 	res.set(http::field::content_type, "application/json");
 	res.body() = json::serialize(o);
-  } catch (const boost::system::system_error& e) {
-	json::object j;
-	j["error"] = e.what();
-	res.result(http::status::bad_request);
-	res.set(http::field::content_type, "application/json");
-	res.body() = json::serialize(j);
   } catch (const std::exception& e) {
-	log_error("Unexpected error: ", e.what());
+	logger_->error(std::format("Unexpected error: {}", e.what()));
 	res.result(http::status::internal_server_error);
 	res.body() = "Internal server error";
   }

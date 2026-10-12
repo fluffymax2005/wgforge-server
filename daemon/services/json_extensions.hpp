@@ -26,11 +26,10 @@
 #include <boost/json.hpp>
 #include <optional>
 
+#include "defines.h"
 #include "endpoint_invalid_argument.h"
 
 namespace WgForge {
-
-namespace json = boost::json;
 
 class JsonExtensions {
 public:

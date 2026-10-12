@@ -24,7 +24,12 @@
 #define __WGFORGE_EXECUTION_INITIALIZER_H__
 
 #include <config_manager.h>
+#include <interface_config.h>
 #include <libeconf.h>
+#include <server_config.h>
+#include <wireguard_config.h>
+
+#include <odb/database.hxx>
 
 #include "defines.h"
 

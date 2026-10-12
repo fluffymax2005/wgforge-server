@@ -33,6 +33,7 @@
 #include "endpoint_invalid_argument.h"
 #include "endpoint_notfound.h"
 #include "inetutils.h"
+#include "peer_config_request.hpp"
 #include "wgforge.h"
 
 namespace WgForge {
@@ -62,6 +63,18 @@ std::future<std::optional<Peer>> PeerService::getPeerAsync(const PeerService::Ke
   return std::async(std::launch::async, [this, key] -> std::optional<Peer> {
 	odb::transaction t(context_->begin());
 	auto result = context_->query<Peer>(odb::query<Peer>::id == key);
+	if (result.empty())
+	  return std::nullopt;
+	Peer p = *result.begin();
+	t.commit();
+	return p;
+  });
+}
+
+std::future<std::optional<Peer>> PeerService::getPeerByPublicKey(std::string_view key) const {
+  return std::async(std::launch::async, [this, key] -> std::optional<Peer> {
+	odb::transaction t(context_->begin());
+	auto result = context_->query<Peer>(odb::query<Peer>::public_key == std::string(key));
 	if (result.empty())
 	  return std::nullopt;
 	Peer p = *result.begin();
@@ -164,6 +177,67 @@ std::future<CreatePeerResponse> PeerService::createPeerAsync(const CreatePeerReq
 
 	    return res;
       });
+}
+
+std::future<void> PeerService::updateAsync(const UpdatePeerRequest& req) {
+  auto copy = req;
+  return std::async(std::launch::async, [this, copy = std::move(copy)] {
+	if (!copy.remove_allowedips && !copy.add_allowedips && !copy.persistent_keepalive &&
+	    !copy.description && !copy.preshared_key && !copy.status)
+	  return;
+
+	odb::transaction t(context_->begin());
+	auto peer_query = context_->query<Peer>(odb::query<Peer>::public_key == copy.public_key);
+	if (peer_query.empty())
+	  throw EndpointNotFound("Peer not found");
+	auto peer = *peer_query.begin();
+
+	if (copy.status)
+	  peer.status = copy.status.value();
+	if (copy.preshared_key)
+	  peer.preshared_key = std::move(copy.preshared_key.value());
+	if (copy.description)
+	  peer.description = std::move(copy.description.value());
+	if (copy.persistent_keepalive)
+	  peer.persistent_keepalive = std::move(copy.persistent_keepalive.value());
+	context_->persist(peer);
+
+	// Remove allowed ips
+	for (const auto allowedip : copy.remove_allowedips.value_or({})) {
+	  auto allowedip_query = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == peer.id &&
+	                                                    odb::query<AllowedIP>::cidr == allowedip);
+	  if (allowedip_query.empty())
+		throw EndpointNotFound(std::format("AllowedIP not found: {}", allowedip));
+
+	  auto ip = *allowedip_query.begin();
+	  if (!ip.deleted_at) {
+		ip.deleted_at = getCurrentUtcTimestamp();
+		ip.updated_at = getCurrentUtcTimestamp();
+		context_->update(ip);
+	  }
+	}
+
+	// Add allowed ips
+	for (const auto& allowedip : copy.add_allowedips.value_or({})) {
+	  auto allowedip_query = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == peer.id);
+	  if (allowedip_query.empty()) {
+		AllowedIP ip{};
+		ip.peer_id = peer.id;
+		ip.cidr = allowedip;
+		ip.created_at = getCurrentUtcTimestamp();
+		context_->persist(ip);
+	  } else {
+		auto ip = *allowedip_query.begin();
+		if (ip.deleted_at) {
+		  ip.deleted_at = std::nullopt;
+		  ip.updated_at = getCurrentUtcTimestamp();
+		  context_->update(ip);
+		}
+	  }
+	}
+
+	t.commit();
+  });
 }
 
 std::future<void> PeerService::softDeleteAsync(const Key& key) {
@@ -347,19 +421,11 @@ std::future<void> PeerService::softDeleteAllowedIPAsync(const Key& key,
 	if (allowedip_query.empty())
 	  throw EndpointNotFound("AllowedIP not found");
 	if (peer.status == Peer::Status::Active) {
-	  if (allowedip_query.empty()) {
-		AllowedIP ip{};
-		ip.peer_id = peer.id;
-		ip.cidr = allowedip;
-		ip.created_at = getCurrentUtcTimestamp();
-		context_->persist(ip);
-	  } else {
-		auto ip = *allowedip_query.begin();
-		if (ip.deleted_at) {
-		  ip.deleted_at = std::nullopt;
-		  ip.updated_at = getCurrentUtcTimestamp();
-		  context_->update(ip);
-		}
+	  auto ip = *allowedip_query.begin();
+	  if (!ip.deleted_at) {
+		ip.deleted_at = getCurrentUtcTimestamp();
+		ip.updated_at = getCurrentUtcTimestamp();
+		context_->update(ip);
 	  }
 	}
 
@@ -394,24 +460,96 @@ std::future<void> PeerService::softDeleteAllowedIPsAsync(
 	  if (allowedip_query.empty())
 		throw EndpointNotFound("AllowedIP not found");
 	  if (peer.status == Peer::Status::Active) {
-		if (allowedip_query.empty()) {
-		  AllowedIP ip{};
-		  ip.peer_id = peer.id;
-		  ip.cidr = allowedip;
-		  ip.created_at = getCurrentUtcTimestamp();
-		  context_->persist(ip);
-		} else {
-		  auto ip = *allowedip_query.begin();
-		  if (ip.deleted_at) {
-			ip.deleted_at = std::nullopt;
-			ip.updated_at = getCurrentUtcTimestamp();
-			context_->update(ip);
-		  }
+		auto ip = *allowedip_query.begin();
+		if (ip.deleted_at) {
+		  ip.deleted_at = getCurrentUtcTimestamp();
+		  ip.updated_at = getCurrentUtcTimestamp();
+		  context_->update(ip);
 		}
 	  }
 	}
 
 	t.commit();
+  });
+}
+
+std::future<void> PeerService::rotatePublicKeyAsync(const RotatePeerPublicKeyRequest& req) {
+  auto copy = req;
+  return std::async(std::launch::async, [this, copy = std::move(copy)] {
+	odb::transaction t(context_->begin());
+
+	auto peer_query = context_->query<Peer>(odb::query<Peer>::public_key == copy.old_key);
+	if (peer_query.empty())
+	  throw EndpointNotFound("Peer not found");
+
+	auto peer = *peer_query.begin();
+
+	WgPrivateKey private_key;
+	WgPublicKey public_key(std::move(private_key));
+	while (iface_->hasPeerWithPublicKey(public_key)) {
+	  private_key = WgPrivateKey();
+	  public_key = WgPublicKey(private_key);
+	}
+
+	peer.public_key = std::move(public_key.toB64String());
+	context_->update(peer);
+
+	t.commit();
+  });
+}
+
+std::future<std::string> PeerService::getPeerConfigAsync(const PeerConfigRequest& req) {
+  auto copy = req;
+  return std::async(std::launch::async, [this, copy = std::move(copy)] -> std::string {
+	odb::transaction t(context_->begin());
+	auto peer_query = context_->query<Peer>(odb::query<Peer>::public_key == copy.public_key);
+	if (peer_query.empty())
+	  throw EndpointNotFound("Peer not found");
+	auto peer = *peer_query.begin();
+
+	auto allowedips_query = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == peer.id);
+	std::vector allowedips(allowedips_query.begin(), allowedips_query.end());
+
+	std::string config;
+	config.reserve(1024);
+	config += std::format(
+	    "# Wireguard Client configuration\n"
+	    "# Provided by WgForge\n\n"
+	    "[Interface]\n"
+	    "# Client Private key - keep this SECRET\n"
+	    "PrivateKey=<PRIVATE_KEY>\n"
+	    "# Client VPN tunnel IP address\n"
+	    "Address={}\n"
+	    "# DNS servers to resolve server domain name (if used)\n"
+	    "DNS=1.1.1.1, 8.8.8.8, 1.0.0.1\n\n",
+	    peer.tunnel_address);
+
+	config += std::format(
+	    "[Peer]\n"
+	    "# Server Public key\n"
+	    "PublicKey={}\n"
+	    "# Server Endpoint\n"
+	    "Endpoint={}\n"
+	    "# Keepalive time in seconds for NAT\n"
+	    "PersistentKeepalive={}\n",
+	    iface_->getPublicKey()->toB64String(),
+	    copy.public_endpoint.value_or(configuration_->getSection("Wireguard")["PublicEndpoint"]),
+	    peer.persistent_keepalive);
+
+	if (peer.preshared_key)
+	  config += std::format(
+	      "# Preshared key\n"
+	      "PresharedKey={}",
+	      peer.preshared_key->c_str());
+
+	for (auto i = 0; i < allowedips.size(); i++) {
+	  if (i == allowedips.size() - 1)
+		config += allowedips[i].cidr;
+	  else
+		config += allowedips[i].cidr + ", ";
+	}
+
+	return config;
   });
 }
 

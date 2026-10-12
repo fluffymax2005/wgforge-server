@@ -35,6 +35,7 @@ endif()
 
 find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
 find_package(wgcpp REQUIRED)
+find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
 
 add_executable(${PROJECT_NAME}
@@ -51,6 +52,10 @@ add_executable(${PROJECT_NAME}
     classes/configuration_section.cpp
 
     controllers/peer_controller.cpp
+    controllers/wireguard_interface_controller.cpp
+
+    services/peer_service.cpp
+    services/wireguard_interface_service.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -82,6 +87,7 @@ target_link_libraries(${PROJECT_NAME}
         nl-route-3
         wgforge-core
         curl
+        fmt::fmt
         spdlog
 )
 

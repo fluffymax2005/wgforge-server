@@ -41,6 +41,7 @@
 #include "spdlogger.h"
 #include "wgforgeserver.h"
 #include "wireguard_interface_controller.h"
+#include "wireguard_interface_service.h"
 
 namespace di = boost::di;
 namespace http = boost::beast::http;
@@ -100,6 +101,8 @@ int main(int argc, char* argv[]) {
 	configuration->getSection("Server")["Address"] = srv_cfg.addr;
 	configuration->getSection("Server")["ListenPort"] = srv_cfg.listenPort;
 
+	const auto wg_config = WgForge::get_wireguard_config(*config_manager);
+	configuration->getSection("Wireguard")["PublicEndpoint"] = wg_config.public_endpoint;
 
 	// Dependency Injection
 	spd_logger->info("Building Dependency Injection Graph...");
@@ -113,7 +116,8 @@ int main(int argc, char* argv[]) {
 	    // Logger as Singleton
 	    di::bind<WgForge::ILogger>().to(spd_logger),
 
-	    di::bind<WgForge::IPeerService>().to<WgForge::PeerService>(),
+	    di::bind<WgForge::IPeerServiceAsync>().to<WgForge::PeerService>(),
+	    di::bind<WgForge::IInterfaceService>().to<WgForge::WireguardInterfaceService>(),
 
 	    // Controllers
 	    di::bind<WgForge::PeerController>().to<WgForge::PeerController>(),

@@ -1,5 +1,5 @@
 /*
- * interface_controller.h
+ * wireguard_interface_controller.h
  * wgforge-server — Backend to manage Wireguard
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
@@ -27,14 +27,17 @@
 
 #include "config_manager.h"
 #include "defines.h"
+#include "iexceptionhandle.h"
+#include "iinterfaceservice.h"
 #include "ilogger.h"
 
 namespace WgForge {
 
-class WireguardInterfaceController {
+class WireguardInterfaceController : IExceptionHandle {
 public:
   WireguardInterfaceController(std::shared_ptr<ILogger> logger,
-                               std::shared_ptr<ConfigManager> config_mgr);
+                               std::shared_ptr<ConfigManager> config_mgr,
+                               std::shared_ptr<IInterfaceService> iface_service);
 
   void getInfo(Request req, Response res);
   void updateConfig(Request req, Response res);
@@ -42,6 +45,9 @@ public:
 private:
   std::shared_ptr<ILogger> logger_;
   std::shared_ptr<ConfigManager> config_mgr_;
+  std::shared_ptr<IInterfaceService> iface_service_;
+
+  virtual void handleException(std::exception_ptr ep, Request req, Response& res) override;
 };
 
 }  // namespace WgForge
