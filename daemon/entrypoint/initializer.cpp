@@ -50,6 +50,7 @@ void setup_wginterface(WgInterface& iface, odb::database& context, const Interfa
   if (config.checkSubnet && !SubnetScanner::isSubnetFree(config.addr))
 	throw std::invalid_argument(std::format("Provided subnet \"{}\" contains host", config.addr));
 
+  odb::transaction t(context.begin());
   auto peers_query = context.query<Peer>(odb::query<Peer>::deleted_at.is_null() &&
                                          odb::query<Peer>::status == Peer::Status::Active);
   if (!peers_query.empty()) {
@@ -70,6 +71,7 @@ void setup_wginterface(WgInterface& iface, odb::database& context, const Interfa
 	  }
 	}
   }
+  t.commit();
 
   iface.setListenPort(config.listenPort);
   iface.setPrivateKey(WgPrivateKey(config.private_key.toB64String()));

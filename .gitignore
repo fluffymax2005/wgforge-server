@@ -10,6 +10,7 @@
 **.qtcreator/
 **.vscode/
 **generated/
+**.idea/
 
 # Ignore file extensions
 *.o

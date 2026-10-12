@@ -26,6 +26,7 @@
 #include <format>
 #include <iostream>
 #include <memory>
+#include <odb/schema-catalog.hxx>
 #include <odb/sqlite/database.hxx>
 #include <string>
 
@@ -79,6 +80,14 @@ int main(int argc, char* argv[]) {
 	spd_logger->info("Opening SQLite database: " + db_path);
 	auto db_context = std::make_shared<odb::sqlite::database>(
 	    db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+	if (odb::schema_catalog::exists(*db_context)) {
+	  odb::transaction t(db_context->begin());
+	  try {
+		odb::schema_catalog::create_schema(*db_context, "", false);
+	  } catch (...) {
+	  }
+	  t.commit();
+	}
 
 	// Wireguard iface
 	spd_logger->info("Binding Wireguard interface: " + iface_name);

@@ -23,16 +23,16 @@
 #ifndef __WGFORGE_IPEERSERVICE_H__
 #define __WGFORGE_IPEERSERVICE_H__
 
+#include <allowedip.hxx>
 #include <boost/json/object.hpp>
 #include <future>
 #include <optional>
+#include <peer.hxx>
 #include <string_view>
 #include <vector>
 
-#include "allowedip.hxx"
 #include "create_peer_request.hpp"
 #include "create_peer_response.hpp"
-#include "peer.hxx"
 #include "peer_config_request.hpp"
 #include "rotate_peer_public_key_request.hpp"
 #include "update_peer_request.hpp"
