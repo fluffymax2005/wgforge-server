@@ -20,15 +20,15 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_DEFINES_H__
-#define __WGFORGE_DEFINES_H__
+#ifndef WGFORGE_DEFINES_HPP
+#define WGFORGE_DEFINES_HPP
 
-#include <config_manager.h>
 #include <libeconf.h>
 #include <wgforge.h>
 
 #include <boost/beast.hpp>
 #include <boost/json.hpp>
+#include <config_manager.hpp>
 #include <libwgcpp/wginterface.hpp>
 
 namespace WgForge {
@@ -42,4 +42,4 @@ using Response = http::response<http::string_body>&;
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_DEFINES_H__
+#endif  // WGFORGE_DEFINES_HPP

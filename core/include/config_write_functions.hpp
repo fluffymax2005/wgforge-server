@@ -1,6 +1,6 @@
 /*
- * config_write_function.h
- * wgforge-core — Core library for wgforge-server (C)
+ * config_write_function.hpp
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_LIBECONF_WRITERS_H__
-#define __WGFORGE_LIBECONF_WRITERS_H__
+#ifndef WGFORGE_LIBECONF_WRITERS_HPP
+#define WGFORGE_LIBECONF_WRITERS_HPP
 
 #include <libeconf.h>
 
@@ -29,7 +29,7 @@
 #include <string>
 #include <string_view>
 
-#include "config_write_register.h"
+#include "config_write_register.hpp"
 
 namespace WgForge {
 namespace LibeconfWriters {
@@ -88,7 +88,7 @@ inline ConfigWriteRegister::WriteReturnCode writeStringView(econf_file* config,
   return econf_setStringValue(config, group.data(), option.data(), value.data());
 }
 
-} // namespace LibeconfWriters
-} // namespace WgForge
+}  // namespace LibeconfWriters
+}  // namespace WgForge
 
-#endif // __WGFORGE_LIBECONF_WRITERS_H__
+#endif  // WGFORGE_LIBECONF_WRITERS_HPP

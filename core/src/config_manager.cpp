@@ -20,12 +20,12 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "config_manager.h"
+#include "config_manager.hpp"
 
 #include <filesystem>
 
-#include "config_read_functions.h"
-#include "config_write_functions.h"
+#include "config_read_functions.hpp"
+#include "config_write_functions.hpp"
 
 namespace WgForge {
 
@@ -114,7 +114,7 @@ ConfigManager::ConfigReturnCode ConfigManager::beginTransaction() noexcept {
   return WGFORGE_CONFIG_OK;
 }
 
-ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
+ConfigManager::ConfigReturnCode ConfigManager::commit() {
   namespace fs = std::filesystem;
 
   if (!isOpen())
@@ -138,9 +138,10 @@ ConfigManager::ConfigReturnCode ConfigManager::commit() noexcept {
   // Write into tmp file
   econf_err ec =
       econf_writeFile(cfg_.get(), tmp_path.parent_path().c_str(), tmp_path.filename().c_str());
-  if (ec != ECONF_SUCCESS)
+  if (ec != ECONF_SUCCESS) {
 	fs::remove(tmp_path);
-  return WGFORGE_CONFIG_RUNTIME_ERROR;
+	return WGFORGE_CONFIG_RUNTIME_ERROR;
+  }
 
   std::error_code fs_ec;
   fs::rename(tmp_path, path, fs_ec);
@@ -168,6 +169,13 @@ ConfigManager::ConfigReturnCode ConfigManager::rollBack() noexcept {
 
 ConfigManager::operator bool() const noexcept {
   return isOpen();
+}
+
+std::string ConfigManager::path() const {
+  std::lock_guard lock(mtx_);
+  if (cfg_ == nullptr)
+	return "";
+  return econf_getPath(cfg_.get());
 }
 
 ConfigManager::ConfigReturnCode ConfigManager::open(std::string_view path, bool readonly) {

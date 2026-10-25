@@ -28,7 +28,6 @@
 #include "endpoint_notfound.h"
 #include "endpoint_runtime_error.h"
 #include "ipeerservice.h"
-#include "rotate_peer_public_key_request.hpp"
 
 namespace WgForge {
 
@@ -254,8 +253,11 @@ void PeerController::rotatePeerKey(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"oldPublicKey\" not provided");
 	std::string old_key = boost::urls::decode(old_key_it->value).value();
 
-	peer_service_->rotatePublicKeyAsync(RotatePeerPublicKeyRequest(old_key)).get();
+	auto result =
+	    peer_service_->rotatePublicKeyAsync(RotatePeerPublicKeyRequest("", old_key)).get();
 
+
+	res.body() = json::serialize(json::value_from(result));
 	res.set(http::field::content_type, "application/json");
 	res.result(http::status::ok);
   } catch (const std::exception& e) {

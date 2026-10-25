@@ -1,13 +1,3 @@
-//
-// connection_manager.hpp
-// ~~~~~~~~~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-
 /*
  * connection_manager.h
  * wgforge-server — Backend to manage Wireguard
@@ -30,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CONNECTION_MANAGER_H
-#define __WGFORGE_CONNECTION_MANAGER_H
+#ifndef WGFORGE_CONNECTION_MANAGER_H
+#define WGFORGE_CONNECTION_MANAGER_H
 
 #include <set>
 
@@ -65,4 +55,4 @@ private:
 
 } // namespace WgForge
 
-#endif // __WGFORGE_CONNECTION_MANAGER_H
+#endif // WGFORGE_CONNECTION_MANAGER_H

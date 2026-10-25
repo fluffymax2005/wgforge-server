@@ -1,6 +1,6 @@
 /*
  * subnetscanner.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_SUBNETSCANNER_H__
-#define __WGFORGE_SUBNETSCANNER_H__
+#ifndef WGFORGE_SUBNETSCANNER_H
+#define WGFORGE_SUBNETSCANNER_H
 
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -105,4 +105,4 @@ private:
                                                     float timeout_seconds = 1);
 };
 
-#endif // __WGFORGE_SUBNETSCANNER_H__
+#endif  // WGFORGE_SUBNETSCANNER_H

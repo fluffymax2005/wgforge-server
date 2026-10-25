@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_ILOGGER_H__
-#define __WGFORGE_ILOGGER_H__
+#ifndef WGFORGE_ILOGGER_H
+#define WGFORGE_ILOGGER_H
 
 #include <string>
 
@@ -37,4 +37,4 @@ public:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_ILOGGER_H__
+#endif  // WGFORGE_ILOGGER_H

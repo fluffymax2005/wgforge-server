@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_WIREGUARD_INTERFACE_SERVICE_H__
-#define __WGFORGE_WIREGUARD_INTERFACE_SERVICE_H__
+#ifndef WGFORGE_WIREGUARD_INTERFACE_SERVICE_H
+#define WGFORGE_WIREGUARD_INTERFACE_SERVICE_H
 
 #include <memory>
 
@@ -49,4 +49,4 @@ private:
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_WIREGUARD_INTERFACE_SERVICE_H__
+#endif  // WGFORGE_WIREGUARD_INTERFACE_SERVICE_H

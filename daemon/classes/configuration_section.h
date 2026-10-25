@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CONFIGURATION_SECTION_H__
-#define __WGFORGE_CONFIGURATION_SECTION_H__
+#ifndef WGFORGE_CONFIGURATION_SECTION_H
+#define WGFORGE_CONFIGURATION_SECTION_H
 
 #include <memory>
 #include <string>
@@ -54,4 +54,4 @@ protected:
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_CONFIGURATION_SECTION_H__
+#endif  // WGFORGE_CONFIGURATION_SECTION_H

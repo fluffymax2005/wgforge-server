@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_INTERFACE_UPDATE_REQUEST_HPP__
-#define __WGFORGE_INTERFACE_UPDATE_REQUEST_HPP__
+#ifndef WGFORGE_INTERFACE_UPDATE_REQUEST_HPP
+#define WGFORGE_INTERFACE_UPDATE_REQUEST_HPP
 
 #include <netinet/in.h>
 
@@ -70,4 +70,4 @@ struct InterfaceUpdateRequest {
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_INTERFACE_UPDATE_REQUEST_HPP__
+#endif  // WGFORGE_INTERFACE_UPDATE_REQUEST_HPP

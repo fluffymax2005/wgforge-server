@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CREATE_PEER_REQUEST_HPP__
-#define __WGFORGE_CREATE_PEER_REQUEST_HPP__
+#ifndef WGFORGE_CREATE_PEER_REQUEST_HPP
+#define WGFORGE_CREATE_PEER_REQUEST_HPP
 
 #include <boost/json.hpp>
 #include <cstdint>
@@ -70,4 +70,4 @@ struct CreatePeerRequest {
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_CREATE_PEER_REQUEST_H__
+#endif  // WGFORGE_CREATE_PEER_REQUEST_HPP

@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_ENDPOINT_INVALID_ARGUMENT_H__
-#define __WGFORGE_ENDPOINT_INVALID_ARGUMENT_H__
+#ifndef WGFORGE_ENDPOINT_INVALID_ARGUMENT_H
+#define WGFORGE_ENDPOINT_INVALID_ARGUMENT_H
 
 #include <stdexcept>
 
@@ -36,4 +36,4 @@ public:
 
 } // namespace WgForge
 
-#endif // __WGFORGE_ENDPOINT_INVALID_ARGUMENT_H__
+#endif // WGFORGE_ENDPOINT_INVALID_ARGUMENT_H

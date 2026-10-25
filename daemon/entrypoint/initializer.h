@@ -20,15 +20,15 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_EXECUTION_INITIALIZER_H__
-#define __WGFORGE_EXECUTION_INITIALIZER_H__
+#ifndef WGFORGE_EXECUTION_INITIALIZER_H
+#define WGFORGE_EXECUTION_INITIALIZER_H
 
-#include <config_manager.h>
-#include <interface_config.h>
 #include <libeconf.h>
 #include <server_config.h>
 #include <wireguard_config.h>
 
+#include <config_manager.hpp>
+#include <interface_config.hpp>
 #include <odb/database.hxx>
 
 #include "defines.h"
@@ -48,4 +48,4 @@ static std::optional<std::string> __get_public_ip();
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_EXECUTION_INITIALIZER_H__
+#endif  // WGFORGE_EXECUTION_INITIALIZER_H

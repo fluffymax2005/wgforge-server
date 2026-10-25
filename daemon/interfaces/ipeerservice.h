@@ -20,22 +20,23 @@
  * license along with wgforge-server. if not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_IPEERSERVICE_H__
-#define __WGFORGE_IPEERSERVICE_H__
+#ifndef WGFORGE_IPEERSERVICE_H
+#define WGFORGE_IPEERSERVICE_H
 
 #include <allowedip.hxx>
 #include <boost/json/object.hpp>
 #include <future>
 #include <optional>
 #include <peer.hxx>
+#include <rotate_peer_public_key_response.hpp>
 #include <string_view>
 #include <vector>
 
 #include "create_peer_request.hpp"
 #include "create_peer_response.hpp"
 #include "peer_config_request.hpp"
-#include "rotate_peer_public_key_request.hpp"
-#include "update_peer_request.hpp"
+#include "rotate_peer_public_key_request_impl.hpp"
+#include "update_peer_request_impl.hpp"
 
 namespace WgForge {
 
@@ -65,10 +66,11 @@ public:
   virtual std::future<void> softDeleteAllowedIPsAsync(
       const Key& key, const std::vector<std::string>& allowedips) = 0;
 
-  virtual std::future<void> rotatePublicKeyAsync(const RotatePeerPublicKeyRequest& req) = 0;
+  virtual std::future<RotatePeerPublicKeyResponse> rotatePublicKeyAsync(
+      const RotatePeerPublicKeyRequest& req) = 0;
   virtual std::future<std::string> getPeerConfigAsync(const PeerConfigRequest& req) = 0;
 };
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_IPEERSERVICE_H__
+#endif  // WGFORGE_IPEERSERVICE_H

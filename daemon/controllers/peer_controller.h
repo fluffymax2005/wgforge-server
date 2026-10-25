@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_CONTROLLER_H__
-#define __WGFORGE_PEER_CONTROLLER_H__
+#ifndef WGFORGE_PEER_CONTROLLER_H
+#define WGFORGE_PEER_CONTROLLER_H
 
 #include <memory.h>
 
@@ -54,4 +54,4 @@ private:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_PEER_CONTROLLER_H__
+#endif  // WGFORGE_PEER_CONTROLLER_H

@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_IINTERFACESERVICE_H__
-#define __WGFORGE_IINTERFACESERVICE_H__
+#ifndef WGFORGE_IINTERFACESERVICE_H
+#define WGFORGE_IINTERFACESERVICE_H
 
 #include "interface_info_response.hpp"
 #include "interface_update_request.hpp"
@@ -39,4 +39,4 @@ public:
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_IINTERFACESERVICE_H__
+#endif  // WGFORGE_IINTERFACESERVICE_H

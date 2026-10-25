@@ -1,6 +1,6 @@
 /*
  * inet_utils.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,10 +20,10 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_INETUTILS_H__
-#define __WGFORGE_INETUTILS_H__
+#ifndef WGFORGE_INETUTILS_H
+#define WGFORGE_INETUTILS_H
 
-#include "interface_config.h"
+#include "interface_config.hpp"
 
 namespace WgForge {
 
@@ -103,4 +103,4 @@ private:
 
 }  // namespace WgForge
 
-#endif
+#endif  // WGFORGE_INETUTILS_H

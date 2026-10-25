@@ -1,6 +1,6 @@
 /*
- * allowedip.h
- * wgforge-core — Core library for wgforge-server (C)
+ * allowedip.hxx
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_ALLOWEDIP_H__
-#define __WGFORGE_ALLOWEDIP_H__
+#ifndef WGFORGE_ALLOWEDIP_HXX
+#define WGFORGE_ALLOWEDIP_HXX
 
 #include <boost/json.hpp>
 #include <boost/json/conversion.hpp>
@@ -73,4 +73,4 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const AllowedIP& a
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_ALLOWEDIP_H__
+#endif  // WGFORGE_ALLOWEDIP_HXX

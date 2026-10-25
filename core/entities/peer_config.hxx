@@ -1,6 +1,6 @@
 /*
  * peer_config.hxx
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_CONFIG_H__
-#define __WGFORGE_PEER_CONFIG_H__
+#ifndef WGFORGE_PEER_CONFIG_HXX
+#define WGFORGE_PEER_CONFIG_HXX
 
 #include <boost/json.hpp>
 #include <vector>
@@ -49,4 +49,4 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const PeerConfig& 
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_PEER_CONFIG_H__
+#endif  // WGFORGE_PEER_CONFIG_HXX

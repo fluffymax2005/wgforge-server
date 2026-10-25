@@ -1,6 +1,6 @@
 /*
  * config_read_write_register.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,11 +20,11 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_READ_WRITE_REGISTER_H__
-#define __WGFORGE_READ_WRITE_REGISTER_H__
+#ifndef WGFORGE_READ_WRITE_REGISTER_H
+#define WGFORGE_READ_WRITE_REGISTER_H
 
 #include "config_read_register.h"
-#include "config_write_register.h"
+#include "config_write_register.hpp"
 
 namespace WgForge {
 
@@ -42,6 +42,6 @@ public:
   ConfigReadWriteRegister& operator=(ConfigReadWriteRegister&&) = default;
 };
 
-} // namespace WgForge
+}  // namespace WgForge
 
-#endif // __WGFORGE_READ_WRITE_REGISTER_H__
+#endif  // WGFORGE_READ_WRITE_REGISTER_H

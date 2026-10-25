@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_WGFORGESERVER_H__
-#define __WGFORGE_WGFORGESERVER_H__
+#ifndef WGFORGE_WGFORGESERVER_H
+#define WGFORGE_WGFORGESERVER_H
 
 #include <boost/asio.hpp>
 #include <string>
@@ -56,4 +56,4 @@ private:
 
 } // namespace WgForge
 
-#endif // __WGFORGE_WGFORGESERVER_H__
+#endif // WGFORGE_WGFORGESERVER_H

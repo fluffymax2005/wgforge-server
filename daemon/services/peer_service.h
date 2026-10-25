@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_SERVICE_H__
-#define __WGFORGE_PEER_SERVICE_H__
+#ifndef WGFORGE_PEER_SERVICE_H
+#define WGFORGE_PEER_SERVICE_H
 
 #include <odb/database.hxx>
 
@@ -60,7 +60,8 @@ public:
   virtual std::future<void> softDeleteAllowedIPsAsync(
       const Key& key, const std::vector<std::string>& allowedips) override;
 
-  virtual std::future<void> rotatePublicKeyAsync(const RotatePeerPublicKeyRequest& req) override;
+  virtual std::future<RotatePeerPublicKeyResponse> rotatePublicKeyAsync(
+      const RotatePeerPublicKeyRequest& req) override;
   virtual std::future<std::string> getPeerConfigAsync(const PeerConfigRequest& req) override;
 
 private:
@@ -75,4 +76,4 @@ private:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_PEER_SERVICE_H__
+#endif  // WGFORGE_PEER_SERVICE_H

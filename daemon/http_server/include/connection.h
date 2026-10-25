@@ -1,12 +1,3 @@
-//
-// Connection.hpp
-// ~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-
 /*
  * connection.h
  * wgforge-server — Backend to manage Wireguard
@@ -29,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CONNECTION_H__
-#define __WGFORGE_CONNECTION_H__
+#ifndef WGFORGE_CONNECTION_H
+#define WGFORGE_CONNECTION_H
 
 #include <array>
 #include <boost/asio.hpp>
@@ -88,4 +79,4 @@ using connection_ptr = std::shared_ptr<Connection>;
 
 } // namespace WgForge
 
-#endif // __WGFORGE_CONNECTION_H__
+#endif // WGFORGE_CONNECTION_H

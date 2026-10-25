@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_SPDLOGGER_H__
-#define __WGFORGE_SPDLOGGER_H__
+#ifndef WGFORGE_SPDLOGGER_H
+#define WGFORGE_SPDLOGGER_H
 
 #include <spdlog/spdlog.h>
 
@@ -43,4 +43,4 @@ private:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_SPDLOGGER_H__
+#endif  // WGFORGE_SPDLOGGER_H

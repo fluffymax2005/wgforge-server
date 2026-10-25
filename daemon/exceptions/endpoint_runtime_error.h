@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_ENDPOINT_RUNTIME_ERROR_H__
-#define __WGFORGE_ENDPOINT_RUNTIME_ERROR_H__
+#ifndef WGFORGE_ENDPOINT_RUNTIME_ERROR_H
+#define WGFORGE_ENDPOINT_RUNTIME_ERROR_H
 
 #include <stdexcept>
 
@@ -47,4 +47,4 @@ private:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_ENDPOINT_RUNTIME_ERROR_H__
+#endif  // WGFORGE_ENDPOINT_RUNTIME_ERROR_H

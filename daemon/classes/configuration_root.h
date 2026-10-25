@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CONFIGURATION_ROOT_H__
-#define __WGFORGE_CONFIGURATION_ROOT_H__
+#ifndef WGFORGE_CONFIGURATION_ROOT_H
+#define WGFORGE_CONFIGURATION_ROOT_H
 
 #include "configuration_section.h"
 
@@ -35,4 +35,4 @@ public:
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_CONFIGURATION_ROOT_H__
+#endif  // WGFORGE_CONFIGURATION_ROOT_H

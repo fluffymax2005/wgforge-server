@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_INTERFACE_INFO_RESPONSE_HPP__
-#define __WGFORGE_INTERFACE_INFO_RESPONSE_HPP__
+#ifndef WGFORGE_INTERFACE_INFO_RESPONSE_HPP
+#define WGFORGE_INTERFACE_INFO_RESPONSE_HPP
 
 #include <netinet/in.h>
 
@@ -57,4 +57,4 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const InterfaceInf
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_INTERFACE_INFO_RESPONSE_H__
+#endif  // WGFORGE_INTERFACE_INFO_RESPONSE_HPP

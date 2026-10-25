@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_ICONFIGURATION_H__
-#define __WGFORGE_ICONFIGURATION_H__
+#ifndef WGFORGE_ICONFIGURATION_H
+#define WGFORGE_ICONFIGURATION_H
 
 #include <string>
 #include <string_view>
@@ -42,4 +42,4 @@ public:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_ICONFIGURATION_H__
+#endif  // WGFORGE_ICONFIGURATION_H

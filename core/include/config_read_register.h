@@ -1,6 +1,6 @@
 /*
- * config_read_register.h
- * wgforge-core — Core library for wgforge-server (C)
+ * config_read_register.hpp
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_CONFIG_READ_REGISTER_H__
-#define __WGFORGE_CONFIG_READ_REGISTER_H__
+#ifndef WGFORGE_CONFIG_READ_REGISTER_HPP
+#define WGFORGE_CONFIG_READ_REGISTER_HPP
 
 #include <libeconf.h>
 
@@ -206,6 +206,6 @@ T ConfigReadRegister::readWithCode(econf_file* config, std::string_view group,
   }
 }
 
-}; // namespace WgForge
+};  // namespace WgForge
 
-#endif // __WGFORGE_CONFIG_READ_REGISTER_H__
+#endif  // WGFORGE_CONFIG_READ_REGISTER_HPP

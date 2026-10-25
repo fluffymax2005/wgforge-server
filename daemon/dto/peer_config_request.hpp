@@ -20,8 +20,8 @@
  * license along with wgforge-server. if not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_CONFIG_REQUEST_HPP__
-#define __WGFORGE_PEER_CONFIG_REQUEST_HPP__
+#ifndef WGFORGE_PEER_CONFIG_REQUEST_HPP
+#define WGFORGE_PEER_CONFIG_REQUEST_HPP
 
 #include <optional>
 #include <string>
@@ -53,4 +53,4 @@ struct PeerConfigRequest {
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_PEER_CONFIG_REQUEST_HPP__
+#endif  // WGFORGE_PEER_CONFIG_REQUEST_HPP

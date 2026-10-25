@@ -1,6 +1,6 @@
 #
 # CMakeLists.txt
-# wgforge-core — Core library for wgforge-server (C)
+# wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
 # Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
 # <santech_montage@mail.ru>
 #
@@ -30,8 +30,7 @@ if(POLICY CMP0167)
 endif()
 
 # External libs
-find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
-#find_package(SQLite3 REQUIRED)
+find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
 find_package(wgcpp REQUIRED)
 
 # ODB

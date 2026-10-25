@@ -1,6 +1,6 @@
 /*
  * peer.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,13 +20,15 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_PEER_H__
-#define __WGFORGE_PEER_H__
+#ifndef WGFORGE_PEER_HXX
+#define WGFORGE_PEER_HXX
 
 #include <boost/json.hpp>
 #include <cstdint>
 #include <optional>
 #include <string>
+
+#include "allowedip.hxx"
 
 namespace WgForge {
 
@@ -74,6 +76,19 @@ struct Peer {
 
 #pragma db column("Deleted_at") type("DATETIME")
   std::optional<std::string> deleted_at;
+
+#pragma db transient
+  std::optional<std::vector<std::string>> allowed_ips;
+
+  static constexpr std::string statusToString(Status status) {
+	switch (status) {
+	case Status::Active   : return "Active";
+	case Status::Suspended: return "Suspended";
+	case Status::Revoked  : return "Revoked";
+	case Status::Archived : return "Archived";
+	default               : return "Unknown";
+	}
+  }
 };
 
 inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) {
@@ -83,6 +98,7 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) 
       {       "presharedKey", peer.preshared_key.value_or("")},
       {             "status",   static_cast<int>(peer.status)},
       {      "tunnelAddress",             peer.tunnel_address},
+      {         "allowedIps",                peer.allowed_ips},
       {"persistentKeepalive",       peer.persistent_keepalive},
       {        "description",                peer.description},
       {          "createdAt",                 peer.created_at},
@@ -91,6 +107,42 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) 
   };
 }
 
+inline Peer tag_invoke(json::value_to_tag<Peer>, const json::value& jv) {
+  const auto& obj = jv.as_object();
+  Peer peer;
+
+  peer.id = json::value_to<int64_t>(obj.at("id"));
+  peer.public_key = json::value_to<std::string>(obj.at("publicKey"));
+  peer.status = static_cast<Peer::Status>(json::value_to<uint8_t>(obj.at("status")));
+  peer.tunnel_address = json::value_to<std::string>(obj.at("tunnelAddress"));
+  peer.persistent_keepalive = json::value_to<uint16_t>(obj.at("persistentKeepalive"));
+  peer.description = json::value_to<std::string>(obj.at("description"));
+  peer.created_at = json::value_to<std::string>(obj.at("createdAt"));
+
+  auto parse_opt = []<typename T>(const json::object& o, const char* key) -> std::optional<T> {
+	if (auto* val = o.if_contains(key); val && !val->is_null()) {
+	  auto result = json::value_to<T>(*val);
+	  if constexpr (std::is_same_v<T, std::string>) {
+		if (result.empty())
+		  return std::nullopt;
+	  } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+		if (result.empty())
+		  return std::nullopt;
+	  }
+	  return result;
+	}
+	return std::nullopt;
+  };
+
+  // Parse opt single values
+  peer.preshared_key = parse_opt.operator()<std::string>(obj, "presharedKey");
+  peer.updated_at = parse_opt.operator()<std::string>(obj, "updatedAt");
+  peer.deleted_at = parse_opt.operator()<std::string>(obj, "deletedAt");
+  peer.allowed_ips = parse_opt.operator()<std::vector<std::string>>(obj, "allowedIps");
+
+  return peer;
+}
+
 }  // namespace WgForge
 
-#endif  // __WGFORGE_PEER_H__
+#endif  // WGFORGE_PEER_HXX

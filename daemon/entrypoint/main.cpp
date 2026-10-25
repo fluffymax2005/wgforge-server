@@ -20,8 +20,11 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <config_error_handler.h>
+
 #include <boost/beast/http/verb.hpp>
 #include <boost/di.hpp>
+#include <config_manager.hpp>
 #include <exception>
 #include <format>
 #include <iostream>
@@ -30,8 +33,6 @@
 #include <odb/sqlite/database.hxx>
 #include <string>
 
-#include "config_error_handler.h"
-#include "config_manager.h"
 #include "configuration_root.h"
 #include "ilogger.h"
 #include "initializer.h"

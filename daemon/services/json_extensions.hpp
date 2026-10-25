@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_JSON_EXTENSIONS_HPP__
-#define __WGFORGE_JSON_EXTENSIONS_HPP__
+#ifndef WGFORGE_JSON_EXTENSIONS_HPP
+#define WGFORGE_JSON_EXTENSIONS_HPP
 
 #include <boost/json.hpp>
 #include <optional>
@@ -111,4 +111,4 @@ public:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_JSON_EXTENSIONS_HPP__
+#endif  // WGFORGE_JSON_EXTENSIONS_HPP

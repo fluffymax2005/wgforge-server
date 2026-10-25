@@ -1,6 +1,6 @@
 /*
  * server_config.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_SERVER_CONFIG_H__
-#define __WGFORGE_SERVER_CONFIG_H__
+#ifndef WGFORGE_SERVER_CONFIG_H
+#define WGFORGE_SERVER_CONFIG_H
 
 #include <netinet/in.h>
 
@@ -39,4 +39,4 @@ struct ServerConfig {
 }  // namespace WgForge
 
 
-#endif  // __WGFORGE_SERVER_CONFIG_H__
+#endif  // WGFORGE_SERVER_CONFIG_H

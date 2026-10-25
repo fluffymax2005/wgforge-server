@@ -1,13 +1,3 @@
-//
-// request_handler.hpp
-// ~~~~~~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2026 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-
 /*
  * request_handler.h
  * wgforge-server — Backend to manage Wireguard
@@ -30,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_REQUEST_HANDLER_H__
-#define __WGFORGE_REQUEST_HANDLER_H__
+#ifndef WGFORGE_REQUEST_HANDLER_H
+#define WGFORGE_REQUEST_HANDLER_H
 
 #include <boost/beast/http.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -95,4 +85,4 @@ void RequestHandler::bind_route(http::verb method, const std::string& path,
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_REQUEST_HANDLER_H__
+#endif  // WGFORGE_REQUEST_HANDLER_H

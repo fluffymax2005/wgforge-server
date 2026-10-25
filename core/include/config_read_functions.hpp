@@ -1,6 +1,6 @@
 /*
- * config_read_functions.h
- * wgforge-core — Core library for wgforge-server (C)
+ * config_read_functions.hpp
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_LIBECONF_READERS_H__
-#define __WGFORGE_LIBECONF_READERS_H__
+#ifndef WGFORGE_LIBECONF_READERS_HPP
+#define WGFORGE_LIBECONF_READERS_HPP
 
 #include <libeconf.h>
 
@@ -116,7 +116,7 @@ std::string readString(econf_file* config, std::string_view group, std::string_v
   return str;
 }
 
-} // namespace LibeconfReaders
-} // namespace WgForge
+}  // namespace LibeconfReaders
+}  // namespace WgForge
 
-#endif // __WGFORGE_LIBECONF_READERS_H__
+#endif  // WGFORGE_LIBECONF_READERS_HPP

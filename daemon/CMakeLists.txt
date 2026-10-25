@@ -20,25 +20,23 @@
 # License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
 #
 
-cmake_minimum_required(VERSION 3.15)
+set(WGFORGE_SERVER_NAME wgforge-server)
 
-set(PROJECT_NAME wgforge-server)
-
-project(${PROJECT_NAME} VERSION 1.0.0 LANGUAGES CXX)
+project(${WGFORGE_SERVER_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 OLD)
+    cmake_policy(SET CMP0167 NEW)
 endif()
 
-find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
+find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
 find_package(wgcpp REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
 
-add_executable(${PROJECT_NAME}
+add_executable(${WGFORGE_SERVER_NAME}
     entrypoint/main.cpp
     entrypoint/initializer.cpp
 
@@ -58,22 +56,24 @@ add_executable(${PROJECT_NAME}
     services/wireguard_interface_service.cpp
 )
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(${WGFORGE_SERVER_NAME}
     PRIVATE
-    entrypoint/
-    exceptions/
-    http_server/include/
-    interfaces/
-    repositories/
-    classes/
-    controllers/
-    dto/
-    services/
-    /usr/include/libnl3/
+        entrypoint/
+        exceptions/
+        http_server/include/
+        interfaces/
+        repositories/
+        classes/
+        controllers/
+        dto/
+        services/
+        /usr/include/libnl3/
 )
 
 # Add Boost.DI (boost-ext library)
-add_subdirectory(libs/Boost.DI)
+if (NOT TARGET Boost.DI)
+    add_subdirectory(${LIBS_DIR}/Boost.DI ${CMAKE_CURRENT_BINARY_DIR}/Boost.DI)
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
@@ -86,12 +86,8 @@ target_link_libraries(${PROJECT_NAME}
         nl-3
         nl-route-3
         wgforge-core
+        wgforge-contracts
         curl
         fmt::fmt
         spdlog
 )
-
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-
-
-

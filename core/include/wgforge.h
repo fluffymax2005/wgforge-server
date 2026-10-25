@@ -1,6 +1,6 @@
 /*
  * wgforge.h
- * wgforge-core — Core library for wgforge-server (C)
+ * wgforge-core — Core library for wgforge-server (C) and wgforge-cli (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *
@@ -20,8 +20,8 @@
  * License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_H__
-#define __WGFORGE_H__
+#ifndef WGFORGE_H
+#define WGFORGE_H
 
 #include <arpa/inet.h>
 #include <libeconf.h>
@@ -31,9 +31,15 @@
 #include <wgprivatekey.hpp>
 
 /**
- * @brief Thread safety type for libwgcpp. Default one is MultiThreaded.
+ * @brief Thread safety type for libwgcpp. Default one is SingleThreaded.
  */
-#define __THREAD_SAFETY__ MultiThreaded
+#define __THREAD_SAFETY__ SingleThreaded
+
+#if defined(__WIN32) || defined(__WIN64)
+  #define ENDLINE "\r\n"
+#else
+  #define ENDLINE "\n"
+#endif
 
 namespace WgForge {
 
@@ -70,4 +76,4 @@ using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
 
 }  // namespace WgForge
 
-#endif
+#endif  // WGFORGE_H

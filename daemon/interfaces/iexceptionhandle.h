@@ -20,8 +20,8 @@
  * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef __WGFORGE_IEXCEPTIONHANDLE_H__
-#define __WGFORGE_IEXCEPTIONHANDLE_H__
+#ifndef WGFORGE_IEXCEPTIONHANDLE_H
+#define WGFORGE_IEXCEPTIONHANDLE_H
 
 #include <exception>
 
@@ -38,4 +38,4 @@ public:
 
 }  // namespace WgForge
 
-#endif  // __WGFORGE_IEXCEPTIONHANDLE_H__
+#endif  // WGFORGE_IEXCEPTIONHANDLE_H

@@ -66,6 +66,14 @@ std::future<std::optional<Peer>> PeerService::getPeerAsync(const PeerService::Ke
 	if (result.empty())
 	  return std::nullopt;
 	Peer p = *result.begin();
+
+	auto ips = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == p.id);
+	if (!ips.empty()) {
+	  for (const auto& ip : ips) {
+		p.allowed_ips->push_back(ip.cidr);
+	  }
+	}
+
 	t.commit();
 	return p;
   });
@@ -78,6 +86,14 @@ std::future<std::optional<Peer>> PeerService::getPeerByPublicKey(std::string_vie
 	if (result.empty())
 	  return std::nullopt;
 	Peer p = *result.begin();
+
+	auto ips = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == p.id, true);
+	if (!p.allowed_ips.has_value())
+	  p.allowed_ips.emplace();
+	for (const auto& ip : ips) {
+	  p.allowed_ips->push_back(ip.cidr);
+	}
+
 	t.commit();
 	return p;
   });
@@ -90,6 +106,16 @@ std::future<std::optional<std::vector<Peer>>> PeerService::getAllAsync() const {
 	if (result.empty())
 	  return std::nullopt;
 	std::vector<Peer> v(result.begin(), result.end());
+
+	for (auto& p : v) {
+	  auto ips = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == p.id, true);
+	  if (!p.allowed_ips.has_value())
+		p.allowed_ips.emplace();
+	  for (const auto& ip : ips) {
+		p.allowed_ips->push_back(ip.cidr);
+	  }
+	}
+
 	t.commit();
 	return v;
   });
@@ -172,8 +198,10 @@ std::future<CreatePeerResponse> PeerService::createPeerAsync(const CreatePeerReq
 
 	    t.commit();
 
-	    res.peer = peer;
+	    res.public_key = public_key.toB64String();
 	    res.private_key = private_key.toB64String();
+	    res.preshared_key = copy.generate_preshared_key ? *peer.preshared_key : "";
+	    res.tunnel_address = peer.tunnel_address;
 
 	    return res;
       });
@@ -200,6 +228,7 @@ std::future<void> PeerService::updateAsync(const UpdatePeerRequest& req) {
 	  peer.description = std::move(copy.description.value());
 	if (copy.persistent_keepalive)
 	  peer.persistent_keepalive = std::move(copy.persistent_keepalive.value());
+	peer.updated_at = getCurrentUtcTimestamp();
 	context_->persist(peer);
 
 	// Remove allowed ips
@@ -473,29 +502,37 @@ std::future<void> PeerService::softDeleteAllowedIPsAsync(
   });
 }
 
-std::future<void> PeerService::rotatePublicKeyAsync(const RotatePeerPublicKeyRequest& req) {
+std::future<RotatePeerPublicKeyResponse> PeerService::rotatePublicKeyAsync(
+    const RotatePeerPublicKeyRequest& req) {
   auto copy = req;
-  return std::async(std::launch::async, [this, copy = std::move(copy)] {
-	odb::transaction t(context_->begin());
+  return std::async(
+      std::launch::async, [this, copy = std::move(copy)] -> RotatePeerPublicKeyResponse {
+	    odb::transaction t(context_->begin());
 
-	auto peer_query = context_->query<Peer>(odb::query<Peer>::public_key == copy.old_key);
-	if (peer_query.empty())
-	  throw EndpointNotFound("Peer not found");
+	    auto peer_query = context_->query<Peer>(odb::query<Peer>::public_key == copy.old_key);
+	    if (peer_query.empty())
+	      throw EndpointNotFound("Peer not found");
 
-	auto peer = *peer_query.begin();
+	    auto peer = *peer_query.begin();
 
-	WgPrivateKey private_key;
-	WgPublicKey public_key(std::move(private_key));
-	while (iface_->hasPeerWithPublicKey(public_key)) {
-	  private_key = WgPrivateKey();
-	  public_key = WgPublicKey(private_key);
-	}
+	    WgPrivateKey private_key;
+	    WgPublicKey public_key(std::move(private_key));
+	    while (iface_->hasPeerWithPublicKey(public_key)) {
+	      private_key.generate();
+	      public_key = WgPublicKey(private_key);
+	    }
 
-	peer.public_key = std::move(public_key.toB64String());
-	context_->update(peer);
+	    peer.public_key = public_key.toB64String();
+	    peer.updated_at = getCurrentUtcTimestamp();
+	    context_->update(peer);
 
-	t.commit();
-  });
+	    t.commit();
+
+	    RotatePeerPublicKeyResponse res{.private_key = private_key.toB64String(),
+		                                .public_key = public_key.toB64String()};
+
+	    return res;
+      });
 }
 
 std::future<std::string> PeerService::getPeerConfigAsync(const PeerConfigRequest& req) {
@@ -510,46 +547,40 @@ std::future<std::string> PeerService::getPeerConfigAsync(const PeerConfigRequest
 	auto allowedips_query = context_->query<AllowedIP>(odb::query<AllowedIP>::peer_id == peer.id);
 	std::vector allowedips(allowedips_query.begin(), allowedips_query.end());
 
-	std::string config;
-	config.reserve(1024);
-	config += std::format(
-	    "# Wireguard Client configuration\n"
-	    "# Provided by WgForge\n\n"
-	    "[Interface]\n"
-	    "# Client Private key - keep this SECRET\n"
-	    "PrivateKey=<PRIVATE_KEY>\n"
-	    "# Client VPN tunnel IP address\n"
-	    "Address={}\n"
-	    "# DNS servers to resolve server domain name (if used)\n"
-	    "DNS=1.1.1.1, 8.8.8.8, 1.0.0.1\n\n",
-	    peer.tunnel_address);
-
-	config += std::format(
-	    "[Peer]\n"
-	    "# Server Public key\n"
-	    "PublicKey={}\n"
-	    "# Server Endpoint\n"
-	    "Endpoint={}\n"
-	    "# Keepalive time in seconds for NAT\n"
-	    "PersistentKeepalive={}\n",
-	    iface_->getPublicKey()->toB64String(),
-	    copy.public_endpoint.value_or(configuration_->getSection("Wireguard")["PublicEndpoint"]),
-	    peer.persistent_keepalive);
+	std::ostringstream oss;
+	oss << "# Wireguard Client configuration\n"
+	    << "# Provided by WgForge\n\n"
+	    << "[Interface]\n"
+	    << "# Client Private key - keep this SECRET\n"
+	    << "PrivateKey=<PRIVATE_KEY>\n\n"
+	    << "# Client VPN tunnel IP address\n"
+	    << "Address=" << peer.tunnel_address << "\n\n"
+	    << "# DNS servers to resolve server domain name (if used)\n"
+	    << "DNS=1.1.1.1, 8.8.8.8, 1.0.0.1\n\n"
+	    << "[Peer]\n"
+	    << "# Server Public key\n"
+	    << "PublicKey=" << iface_->getPublicKey()->toB64String() << "\n\n"
+	    << "# Server Endpoint\n"
+	    << "Endpoint="
+	    << copy.public_endpoint.value_or(configuration_->getSection("Wireguard")["PublicEndpoint"])
+	    << "\n\n"
+	    << "# Keepalive time in seconds for NAT\n"
+	    << "PersistentKeepalive=" << peer.persistent_keepalive << "\n\n";
 
 	if (peer.preshared_key)
-	  config += std::format(
-	      "# Preshared key\n"
-	      "PresharedKey={}",
-	      peer.preshared_key->c_str());
+	  oss << "# Preshared key\n"
+	      << "PresharedKey=" << peer.preshared_key->c_str() << "\n\n";
+
+	oss << "# Allowed IPs used for routing\n"
+	    << "AllowedIPs=";
 
 	for (auto i = 0; i < allowedips.size(); i++) {
-	  if (i == allowedips.size() - 1)
-		config += allowedips[i].cidr;
-	  else
-		config += allowedips[i].cidr + ", ";
+	  oss << allowedips[i].cidr;
+	  if (i < allowedips.size() - 1)
+		oss << ", ";
 	}
 
-	return config;
+	return oss.str();
   });
 }
 
