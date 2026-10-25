@@ -23,14 +23,15 @@
 #ifndef WGFORGE_PEER_SERVICE_H
 #define WGFORGE_PEER_SERVICE_H
 
+#include <wgforge.h>
+
+#include <config_manager.hpp>
 #include <odb/database.hxx>
 
-#include "config_manager.h"
 #include "iconfiguration_section.h"
 #include "ilogger.h"
 #include "ipeerservice.h"
 #include "peer_config_request.hpp"
-#include "wgforge.h"
 
 namespace WgForge {
 

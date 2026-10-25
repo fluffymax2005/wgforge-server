@@ -23,9 +23,9 @@
 #ifndef WGFORGE_WIREGUARD_INTERFACE_CONTROLLER_H
 #define WGFORGE_WIREGUARD_INTERFACE_CONTROLLER_H
 
+#include <config_manager.hpp>
 #include <memory>
 
-#include "config_manager.h"
 #include "defines.h"
 #include "iexceptionhandle.h"
 #include "iinterfaceservice.h"

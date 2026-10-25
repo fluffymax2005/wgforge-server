@@ -23,23 +23,22 @@
 #include "initializer.h"
 
 #include <arpa/inet.h>
+#include <config_error_handler.h>
+#include <config_read_write_register.h>
 #include <curl/curl.h>
+#include <inetutils.h>
 #include <libeconf.h>
 #include <sqlite3.h>
+#include <subnetscanner.h>
+#include <wgforge.h>
 
+#include <config_write_functions.hpp>
+#include <config_write_register.hpp>
 #include <filesystem>
 #include <format>
 #include <odb/query.hxx>
+#include <peer-odb.hxx>
 #include <unordered_set>
-
-#include "config_error_handler.h"
-#include "config_read_write_register.h"
-#include "config_write_functions.h"
-#include "config_write_register.h"
-#include "inetutils.h"
-#include "peer-odb.hxx"
-#include "subnetscanner.h"
-#include "wgforge.h"
 
 namespace WgForge {
 

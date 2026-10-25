@@ -23,7 +23,7 @@
 #ifndef WGFORGE_ROTATE_PEER_REQUEST_IMPL_HPP
 #define WGFORGE_ROTATE_PEER_REQUEST_IMPL_HPP
 
-#include <rotate_peer_public_key_request.h>
+#include <rotate_peer_public_key_request.hpp>
 
 #include "endpoint_invalid_argument.h"
 #include "wgforge.h"

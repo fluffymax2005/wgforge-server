@@ -23,9 +23,9 @@
 #ifndef WGFORGE_WIREGUARD_INTERFACE_SERVICE_H
 #define WGFORGE_WIREGUARD_INTERFACE_SERVICE_H
 
+#include <config_manager.hpp>
 #include <memory>
 
-#include "config_manager.h"
 #include "iinterfaceservice.h"
 #include "ilogger.h"
 
