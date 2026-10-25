@@ -1,0 +1,39 @@
+/*
+ * peer_serializer.cpp
+ * wgforge-cli — CLI frontend for wgforge-server (C)rver (C)rver (C)rver (C)rver (C)
+ * copyright (c) 2026  ledovskiy maksim aka fluffymax2005
+ * <santech_montage@mail.ru>
+ *
+ * this file is part of wgforge.
+ *
+ * wgforge-server is free software: you can redistribute it and/or
+ * modify it under the terms of the gnu lesser general public
+ * license as published by the free software foundation,
+ * either version 3 of the license, or (at your option) any later version.
+ *
+ * wgforge-server is distributed in the hope that it will be useful,
+ * but without any warranty; without even the implied warranty of
+ * merchantability or fitness for a particular purpose. see the gnu
+ * lesser general public license for more details.
+ *
+ * you should have received a copy of the gnu lesser general public
+ * license along with wgforge-server. if not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "peer_serializer.h"
+
+#include <boost/json.hpp>
+
+namespace WgForge {
+
+std::string PeerSerializer::serialize(const Peer& entity) const {
+  auto val = json::value_from(entity);
+  return json::serialize(val);
+}
+
+Peer PeerSerializer::deserialize(const std::string& entity) const {
+  auto val = json::parse(entity);
+  return json::value_to<Peer>(val);
+}
+
+}  // namespace WgForge

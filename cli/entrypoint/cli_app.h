@@ -1,4 +1,5 @@
 /*
+ * cli_app.h
  * wgforge-cli — CLI frontend for wgforge-server (C)
  * Copyright (C) 2026  Ledovskiy Maksim aka fluffymax2005
  * <santech_montage@mail.ru>
@@ -16,10 +17,33 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with wgforge-cli. If not, see <https://www.gnu.org/licenses/>.
+ * License along with wgforge-server. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
+#ifndef WGFORGE_CLI_APP_H
+#define WGFORGE_CLI_APP_H
 
-int main() {
-}
+#include <ostream>
+
+#include "CLI/CLI.hpp"
+#include "cli_controller.h"
+
+namespace WgForge {
+
+class CliApp {
+public:
+  explicit CliApp(std::shared_ptr<CliController> cli_controller, std::ostream& os = std::cout);
+
+  int run(int argc, char* argv[]);
+
+private:
+  std::shared_ptr<CliController> cli_controller_;
+  std::ostream& os_;
+  CLI::App app_;
+
+  void setupOptions();
+};
+
+}  // namespace WgForge
+
+#endif  // WGFORGE_CLI_APP_H

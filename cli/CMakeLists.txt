@@ -20,21 +20,71 @@
 # License along with wgforge-cli. If not, see <https://www.gnu.org/licenses/>.
 #
 
+set(WGFORGE_CLI_NAME wgforge-cli)
+project(${WGFORGE_CLI_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
-set(CLI_NAME wgforge-cli)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 OLD)
+    cmake_policy(SET CMP0167 NEW)
 endif()
 
-find_package(Boost 1.70 REQUIRED COMPONENTS ALL)
+find_package(CLI11 CONFIG REQUIRED)
+find_package(wgcpp REQUIRED)
+find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
 
-add_executable(${CLI_NAME}
-    src/main.cpp
+add_executable(${WGFORGE_CLI_NAME}
+    entrypoint/main.cpp
+    entrypoint/cli_app.cpp
+
+    controllers/cli_controller.cpp
+
+    api/peer_api.cpp
+    api/interface_api.cpp
+
+    managers/interface_manager.cpp
+    managers/peer_manager.cpp
+    managers/server_manager.cpp
+
+    parsers/interface_serializer.cpp
+    parsers/peer_serializer.cpp
+    parsers/data_processor.cpp
+
+    senders/boost_beast_http_sender.cpp
 )
 
-target_link_libraries(${CLI_NAME}
+# Add Boost.DI (boost-ext library)
+if (NOT TARGET Boost.DI)
+    add_subdirectory(${LIBS_DIR}/Boost.DI ${CMAKE_CURRENT_BINARY_DIR}/Boost.DI)
+endif()
+
+target_link_libraries(${WGFORGE_CLI_NAME}
     PRIVATE
-        wgforge_common
-        Boost::program_options
+        wgforge-core
+        CLI11::CLI11
+        wgforge-contracts
+        wgcpp
+        Boost::url
+        Boost::json
+        Boost.DI
+)
+
+target_include_directories(${WGFORGE_CLI_NAME}
+    PRIVATE
+        dto/
+        entities/
+        interfaces/
+        entrypoint/
+        controllers/
+        managers/
+        parsers/
+        senders/
+        api/
+
+)
+
+target_compile_definitions(${WGFORGE_CLI_NAME}
+    PRIVATE
+        WGFORGE_CLI_VERSION="${PROJECT_VERSION}"
 )
