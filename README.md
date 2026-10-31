@@ -1,5 +1,5 @@
 <p align="center">
-  <!-- insert logo of project !-->
+  <img align="center" src="https://raw.github.com/fluffymax2005/wgforge-server/40800c94bd5af2516467f6c01f91a3ce1827a9fa/images/logo.jpg">
 </p>
 
 # Contents
