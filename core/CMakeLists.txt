@@ -20,10 +20,9 @@
 # License along with wgforge-core. If not, see <https://www.gnu.org/licenses/>.
 #
 
-set(CORE_NAME wgforge-core)
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CORE_NAME wgforge-core)
 
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
@@ -37,13 +36,44 @@ find_package(wgcpp REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ODB_CORE REQUIRED IMPORTED_TARGET libodb)
 pkg_check_modules(ODB_SQLITE REQUIRED IMPORTED_TARGET libodb-sqlite)
+find_program(ODB_EXECUTABLE odb REQUIRED)
 
-set(ODB_GENERATED_SOURCES_DIR entities/generated)
-set(ODB_GENERATED_SOURCES
-    ${ODB_GENERATED_SOURCES_DIR}/peer-odb.cxx
-    ${ODB_GENERATED_SOURCES_DIR}/allowedip-odb.cxx
+set(ODB_GENERATED_SOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/entities/generated")
+
+file(MAKE_DIRECTORY ${ODB_GENERATED_SOURCES_DIR})
+
+set(ENTITIES_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/entities/allowedip.hxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/entities/peer.hxx
 )
 
+set(ODB_GENERATED_SOURCES "")
+
+foreach(HEADER ${ENTITIES_HEADERS})
+    get_filename_component(HEADER_NAME ${HEADER} NAME_WE)
+
+    set(GEN_CXX "${ODB_GENERATED_SOURCES_DIR}/${HEADER_NAME}-odb.cxx")
+    set(GEN_HXX "${ODB_GENERATED_SOURCES_DIR}/${HEADER_NAME}-odb.hxx")
+    set(GEN_IXX "${ODB_GENERATED_SOURCES_DIR}/${HEADER_NAME}-odb.ixx")
+
+    add_custom_command(
+        OUTPUT ${GEN_CXX} ${GEN_HXX} ${GEN_IXX}
+        COMMAND ${ODB_EXECUTABLE}
+            -d sqlite
+            --std c++23
+            --generate-schema
+            --generate-query
+            --schema-format embedded
+            --default-pointer std::shared_ptr
+            --output-dir "${ODB_GENERATED_SOURCES_DIR}"
+            "${HEADER}"
+        DEPENDS ${HEADER}
+        COMMENT "Generating ODB code for ${HEADER_NAME}.hxx"
+        VERBATIM
+    )
+
+    list(APPEND ODB_GENERATED_SOURCES ${GEN_CXX})
+endforeach()
 
 add_library(${CORE_NAME}
     STATIC
@@ -53,7 +83,6 @@ add_library(${CORE_NAME}
         src/inetutils.cpp
 
         ${ODB_GENERATED_SOURCES}
-
 )
 
 target_include_directories(${CORE_NAME}
@@ -61,8 +90,11 @@ target_include_directories(${CORE_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/include/
         ${CMAKE_CURRENT_SOURCE_DIR}/entities/
         ${ODB_GENERATED_SOURCES_DIR}
-        /usr/include/libnl3/
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_include_directories(${CORE_NAME} PRIVATE /usr/include/libnl3/)
+endif()
 
 target_link_libraries(${CORE_NAME}
     PUBLIC
@@ -71,4 +103,3 @@ target_link_libraries(${CORE_NAME}
        econf
        wgcpp
 )
-
