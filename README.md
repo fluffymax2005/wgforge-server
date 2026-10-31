@@ -1,5 +1,5 @@
 <p align="center">
-  <img height=200 src="https://raw.githubusercontent.com/fluffymax2005/wgforge-server/40800c94bd5af2516467f6c01f91a3ce1827a9fa/images/logo.jpg" alt="Logo">
+  <img height=300 src="https://raw.githubusercontent.com/fluffymax2005/wgforge-server/40800c94bd5af2516467f6c01f91a3ce1827a9fa/images/logo.jpg" alt="Logo">
 </p>
 
 # Contents
