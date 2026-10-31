@@ -22,9 +22,21 @@
 
 # Introduction
 
+WgForge - project aimed to provide tools to easily deploy Wireguard server on any Linux based distro as well as administrate it via CLI or [GUI](https://github.com/fluffymax2005/wgforge-gui) on any platform - Windows, Linux, MacOS. It takes most annoying routine to manage Wireguard server: CRUD peers, archive them
 
 # Features
 
+WgForge Server:
+- **Systemd** integration as template service
+- Suitable for **embeddable** systems. The SQLite3 database is used to store peers' configuration by ```/var/lib/wgforge/```
+- **Logging**. Includes **sensitive logs** such as **rotating** peer's public key redirecting to systemd logs
+- **Customization**. Administrator can **configure HTTP server** and **Wireguard interface** via .conf files in ```/etc/wgforge/```
+- Wireguard based **config generator**. One can request generate config for concrete peer and get .txt based configuration which can you directly. In addition, requester may override default public server IP address
+
+WgForge CLI:
+- Simple **stable API** to manage daemon
+- Considers **features** of **different OS**. For example, Windows clients cannot locally read HTTP server config but rather connect to server by SSH and read it then
+- **Various data output variations**. Peers' data may be printed as a table or as a list. It may be useful for scripts
 
 # Dependencies
 
@@ -158,7 +170,7 @@ sudo cmake --install build --component wgforge-server
 
 ## C++
 
-Most C++ classes from different layer (e.g. core) are supplied with Doxygen documentation. Also most IDEs show up hints provided by classes. In case of see web based Doxygen base documentation execute from root projects directory:
+Most C++ classes from different layers (e.g. core) are supplied with Doxygen documentation. Also most IDEs show up hints provided by classes. In case of see web based Doxygen base documentation execute from root projects directory:
 ```
 cd docs
 doxygen
