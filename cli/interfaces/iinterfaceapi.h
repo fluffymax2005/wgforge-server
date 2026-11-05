@@ -23,7 +23,9 @@
 #ifndef WGFORGE_IINTERFACEAPI_H
 #define WGFORGE_IINTERFACEAPI_H
 
+#include "get_interface_config_request.h"
 #include "interface_config.hpp"
+#include "update_interface_request.hpp"
 
 namespace WgForge {
 
@@ -31,8 +33,8 @@ class IInterfaceApi {
 public:
   virtual ~IInterfaceApi() = default;
 
-  virtual InterfaceConfig get(const std::string& iface) const = 0;
-  virtual void update(const InterfaceConfig& iface) = 0;
+  virtual InterfaceConfig get(const GetInterfaceConfigRequest& req) const = 0;
+  virtual void update(const UpdateInterfaceRequest& req) = 0;
 };
 
 }  // namespace WgForge

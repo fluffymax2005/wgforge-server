@@ -33,29 +33,19 @@ InterfaceManager::InterfaceManager(std::shared_ptr<IInterfaceApi> api) {
   api_ = std::move(api);
 }
 
-InterfaceConfig InterfaceManager::getConfig(const std::string& iface) const {
-  return api_->get(iface);
+InterfaceConfig InterfaceManager::getConfig(const GetInterfaceConfigRequest& req) const {
+  return api_->get(req);
 }
 
 void InterfaceManager::updateConfig(const UpdateInterfaceRequest& req) {
   if (!req.requiresQuery())
 	throw std::invalid_argument("No data to update interface provided");
-  InterfaceConfig config{};
-  if (req.listen_port)
-	config.listenPort = *req.listen_port;
-  if (req.address) {
-	if (!WgAllowedIP::validate(*req.address))
-	  throw std::invalid_argument("Invalid address");
-	std::strcpy(config.addr, (*req.address).c_str());
-  }
-  if (req.private_key) {
-	if (!WgPrivateKey::validateB64StringKey(*req.private_key))
-	  throw std::invalid_argument("Invalid private key");
-	config.private_key = WgPrivateKey(*req.private_key);
-  }
-  if (req.check_subnet)
-	config.checkSubnet = *req.check_subnet;
-  api_->update(config);
+
+  if (req.address && !WgAllowedIP::validate(*req.address))
+	throw std::invalid_argument("Invalid address");
+  if ((req.private_key) && !WgPrivateKey::validateB64StringKey(*req.private_key))
+	throw std::invalid_argument("Invalid private key");
+  api_->update(req);
 }
 
 }  // namespace WgForge

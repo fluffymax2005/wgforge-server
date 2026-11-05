@@ -42,8 +42,8 @@ public:
                std::shared_ptr<ISerializer<InterfaceConfig>> serializer,
                std::shared_ptr<ConfigManager> cfg_mgr);
 
-  virtual InterfaceConfig get(const std::string& iface) const override;
-  virtual void update(const InterfaceConfig& iface) override;
+  virtual InterfaceConfig get(const GetInterfaceConfigRequest& req) const override;
+  virtual void update(const UpdateInterfaceRequest& req) override;
 
 private:
   std::shared_ptr<IHttpSender> sender_;
@@ -51,7 +51,7 @@ private:
   std::shared_ptr<ConfigManager> cfg_mgr_;
 
   bool ensureConfigOpenedImpl(const std::string& iface) const;
-  urls::url getEncodedUrlImpl() const;
+  urls::url getEncodedUrlImpl(std::optional<std::string> endpoint) const;
 };
 
 }  // namespace WgForge

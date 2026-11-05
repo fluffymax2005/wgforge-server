@@ -100,7 +100,7 @@ void CliController::rotatePeerPublicKey(const RotatePeerPublicKeyRequest& req) {
 }
 
 void CliController::getInterfaceConfig(const GetInterfaceConfigRequest& req) {
-  auto config = iface_mgr_->getConfig(req.iface);
+  auto config = iface_mgr_->getConfig(req);
   os_ << ENDLINE << data_prs_->interfaceToString(config /*, req.display*/) << ENDLINE << ENDLINE;
 }
 

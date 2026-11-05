@@ -63,10 +63,19 @@ void CliApp::setupOptions() {
   auto* cmd_peers = app_.add_subcommand("peers", "Display all peers");
   auto peer_all_req = std::make_shared<GetAllPeerRequest>();
 
+#ifdef WGFORGE_CLI_WINDOWS
+  constexpr auto ENDPOINT_DESCRIPTION =
+      "Endpoint to send request to (for example, mydns.com:1111).";
+#else
+  constexpr auto ENDPOINT_DESCRIPTION =
+      "Endpoint to send request to (for example, mydns.com:1111). Overrides "
+      "interface option anyway";
+#endif
+
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peers->add_option("-i,--interface", peer_all_req->iface, "Interface name (for example, wg0)");
-  cmd_peers->add_option("-e,--endpoint", peer_all_req->endpoint,
-                        "Endpoint to send request to (for example, mydns.com:1111). Overrides "
-                        "interface option anyway");
+#endif
+  cmd_peers->add_option("-e,--endpoint", peer_all_req->endpoint, ENDPOINT_DESCRIPTION);
   cmd_peers->add_flag("-s,--short-keys", peer_all_req->short_keys,
                       "Short key representation (for example, A1G5....FGA=)");
   cmd_peers
@@ -88,12 +97,12 @@ void CliApp::setupOptions() {
 
   auto peer_req = std::make_shared<GetPeerRequest>();
   cmd_peer->add_option("-p,--public-key", peer_req->public_key, "Peer's public key");
-  cmd_peer->add_option("-e,--endpoint", peer_req->endpoint,
-                       "Endpoint to send request to (for example, mydns.com:1111). Overrides "
-                       "interface option anyway");
+  cmd_peer->add_option("-e,--endpoint", peer_req->endpoint, ENDPOINT_DESCRIPTION);
   cmd_peer->add_flag("-s,--short-keys", peer_req->short_keys,
                      "Short key representation (for example, A1G5....FGA=)");
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peer->add_option("-i,--interface", peer_req->iface, "Interface name");
+#endif
   cmd_peer->add_option("-c,--columns", peer_req->cols, "Columns to display")->delimiter(',');
   cmd_peer->add_option("-d,--display", peer_req->display, "Display type")
       ->transform(CLI::CheckedTransformer(display_map, CLI::ignore_case));
@@ -114,10 +123,11 @@ void CliApp::setupOptions() {
       "-e,--endpoint", config_req->endpoint,
       "Endpoint to send request to (for example, mydns.com:1111). Overrides "
       "interface option anyway");
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peer_config->add_option("-i,--interface", config_req->iface, "Interface name");
+#endif
   cmd_peer_config->add_option("--public-endpoint", config_req->public_endpoint,
-                              "Public endpoint of Wireguard server to connect to (for example, "
-                              "mydns.com:1111). Do not confuse with --endpoint");
+                              ENDPOINT_DESCRIPTION);
   cmd_peer_config->callback([this, config_req] { cli_controller_->getPeerConfig(*config_req); });
 
   // CMD: peer rotate
@@ -130,11 +140,10 @@ void CliApp::setupOptions() {
 
   cmd_peer_rotate->add_option("-p,--public-key", rotate_req->old_key,
                               "Peer's current (old) public key");
-  cmd_peer_rotate->add_option(
-      "-e,--endpoint", rotate_req->endpoint,
-      "Endpoint to send request to (for example, mydns.com:1111). Overrides "
-      "interface option anyway");
+  cmd_peer_rotate->add_option("-e,--endpoint", rotate_req->endpoint, ENDPOINT_DESCRIPTION);
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peer_rotate->add_option("-i,--interface", rotate_req->iface, "Interface name");
+#endif
 
   cmd_peer_rotate->callback(
       [this, rotate_req] { cli_controller_->rotatePeerPublicKey(*rotate_req); });
@@ -143,11 +152,11 @@ void CliApp::setupOptions() {
 
   auto cmd_peer_del = cmd_peer->add_subcommand("delete", "Delete peer");
   auto del_req = std::make_shared<DeletePeerRequest>();
-  cmd_peer_del->add_option("-e,--endpoint", del_req->endpoint,
-                           "Endpoint to send request to (for example, mydns.com:1111). Overrides "
-                           "interface option anyway");
+  cmd_peer_del->add_option("-e,--endpoint", del_req->endpoint, ENDPOINT_DESCRIPTION);
   cmd_peer_del->add_option("-p,--public-key", del_req->public_key, "Peer's public key");
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peer_del->add_option("-i,--interface", del_req->iface, "Interface name");
+#endif
 
   cmd_peer_del->callback([this, del_req] { cli_controller_->deletePeer(*del_req); });
 
@@ -156,10 +165,10 @@ void CliApp::setupOptions() {
   auto cmd_peer_upd = cmd_peer->add_subcommand("update", "Update peer");
   auto upd_req = std::make_shared<UpdatePeerRequest>();
   cmd_peer_upd->add_option("-p,--public-key", upd_req->public_key, "Peer's public key");
-  cmd_peer_upd->add_option("-e,--endpoint", upd_req->endpoint,
-                           "Endpoint to send request to (for example, mydns.com:1111). Overrides "
-                           "interface option anyway");
+  cmd_peer_upd->add_option("-e,--endpoint", upd_req->endpoint, ENDPOINT_DESCRIPTION);
+#ifndef WGFORGE_CLI_WINDOWS
   cmd_peer_upd->add_option("-i,--interface", upd_req->iface, "Interface name");
+#endif
   cmd_peer_upd->add_option("--preshared-key", upd_req->preshared_key,
                            "Peer's preshared key to change to");
   cmd_peer_upd->add_option("--status", upd_req->status, "Peer's status to change to");
@@ -177,12 +186,15 @@ void CliApp::setupOptions() {
 
   auto cmd_iface = app_.add_subcommand("interface", "Get Wireguard interface configuration");
   cmd_iface->require_subcommand(0, 1);
-  auto iface_name = std::make_shared<std::string>();
-  cmd_iface->add_option("interface", *iface_name, "Wireguard interface name");
+  auto iface_get_req = std::make_shared<GetInterfaceConfigRequest>();
+#ifndef WGFORGE_CLI_WINDOWS
+  cmd_iface->add_option("interface", iface_get_req->iface, "Wireguard interface name");
+#endif
+  cmd_iface->add_option("-e,--endpoint", iface_get_req->endpoint, ENDPOINT_DESCRIPTION);
 
-  cmd_iface->callback([this, cmd_iface, iface_name] {
+  cmd_iface->callback([this, cmd_iface, iface_get_req] {
 	if (cmd_iface->get_subcommands().empty())
-	  cli_controller_->getInterfaceConfig(GetInterfaceConfigRequest(std::move(*iface_name)));
+	  cli_controller_->getInterfaceConfig(*iface_get_req);
   });
 
   // CMD: interface update
@@ -190,26 +202,26 @@ void CliApp::setupOptions() {
   auto cmd_iface_upd =
       cmd_iface->add_subcommand("update", "Update Wireguard interface configuration");
   auto iface_upd_req = std::make_shared<UpdateInterfaceRequest>();
-  cmd_iface_upd->add_option("interface", iface_upd_req->iface, "Interface's name");
+  cmd_iface_upd->add_option("-e,--endpoint", iface_get_req->endpoint, ENDPOINT_DESCRIPTION);
   cmd_iface_upd->add_option("-a,--address", iface_upd_req->address, "New listening address");
   cmd_iface_upd->add_option("-p,--private-key", iface_upd_req->private_key, "New private key");
   cmd_iface_upd->add_option("-l,--listen-port", iface_upd_req->listen_port, "New listen port");
-  cmd_iface_upd->add_option("--check-subnet", iface_upd_req->check_subnet,
-                            "Whether daemon should check subnet is free before starting (bool)");
 
   cmd_iface_upd->callback(
       [this, iface_upd_req] { cli_controller_->updateInterfaceConfig(*iface_upd_req); });
 
   // CMD: server
+  // Local server updating is available for Linux
+#if !defined(WGFORGE_CLI_WINDOWS) && !defined(WGFORGE_CLI_MACOS)
 
   auto cmd_srv = app_.add_subcommand("server", "Get HTTP server configuration");
   cmd_srv->require_subcommand(0, 1);
-  auto srv_iface_name = std::make_shared<std::string>();
-  cmd_srv->add_option("interface", *srv_iface_name, "Wireguard interface name");
+  auto srv_get_cfg = std::make_shared<GetServerConfigRequest>();
+  cmd_srv->add_option("interface", srv_get_cfg->iface, "Wireguard interface name");
 
-  cmd_srv->callback([this, cmd_srv, srv_iface_name] {
+  cmd_srv->callback([this, cmd_srv, srv_get_cfg] {
 	if (cmd_srv->get_subcommands().empty())
-	  cli_controller_->getServerConfig(GetServerConfigRequest{.iface = std::move(*srv_iface_name)});
+	  cli_controller_->getServerConfig(*srv_get_cfg);
   });
 
   auto cmd_srv_upd = cmd_srv->add_subcommand("update", "Update HTTP server configuration");
@@ -222,6 +234,8 @@ void CliApp::setupOptions() {
 
   cmd_srv_upd->callback(
       [this, srv_upd_req] { cli_controller_->updateServerConfig(std::move(*srv_upd_req)); });
+
+#endif
 }
 
 }  // namespace WgForge

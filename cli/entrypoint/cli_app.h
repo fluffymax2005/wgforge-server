@@ -23,6 +23,16 @@
 #ifndef WGFORGE_CLI_APP_H
 #define WGFORGE_CLI_APP_H
 
+// Some cli option should be ignore for Windows Family
+#if defined(__WIN32) || defined(__WIN64)
+  #define WGFORGE_CLI_WINDOWS
+#endif
+
+// As well as for MacOS
+#ifdef __MACOS__
+  #define WGFORGE_CLI_MACOS
+#endif
+
 #include <ostream>
 
 #include "CLI/CLI.hpp"

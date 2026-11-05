@@ -34,7 +34,7 @@ class InterfaceManager : public IInterfaceManager {
 public:
   InterfaceManager(std::shared_ptr<IInterfaceApi> api);
 
-  virtual InterfaceConfig getConfig(const std::string& iface) const override;
+  virtual InterfaceConfig getConfig(const GetInterfaceConfigRequest& req) const override;
   virtual void updateConfig(const UpdateInterfaceRequest& req) override;
 
 private:

@@ -23,6 +23,7 @@
 #ifndef WGFORGE_IINTERFACEMANAGER_H
 #define WGFORGE_IINTERFACEMANAGER_H
 
+#include "get_interface_config_request.h"
 #include "interface_config.hpp"
 #include "update_interface_request.hpp"
 
@@ -32,7 +33,7 @@ class IInterfaceManager {
 public:
   virtual ~IInterfaceManager() = default;
 
-  virtual InterfaceConfig getConfig(const std::string& iface) const = 0;
+  virtual InterfaceConfig getConfig(const GetInterfaceConfigRequest& req) const = 0;
   virtual void updateConfig(const UpdateInterfaceRequest& req) = 0;
 };
 

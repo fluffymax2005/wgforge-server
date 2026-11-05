@@ -23,6 +23,7 @@
 #ifndef WGFORGE_GET_INTERFACE_CONFIG_REQUEST_H
 #define WGFORGE_GET_INTERFACE_CONFIG_REQUEST_H
 
+#include <optional>
 #include <string>
 
 #include "display.h"
@@ -31,6 +32,7 @@ namespace WgForge {
 
 struct GetInterfaceConfigRequest {
   std::string iface;
+  std::optional<std::string> endpoint;
 };
 
 }  // namespace WgForge

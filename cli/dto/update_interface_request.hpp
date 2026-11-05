@@ -32,6 +32,7 @@ namespace WgForge {
 
 struct UpdateInterfaceRequest {
   std::string iface;
+  std::optional<std::string> endpoint;
   std::optional<std::string> address;
   std::optional<std::string> private_key;
   std::optional<in_port_t> listen_port;
@@ -39,7 +40,7 @@ struct UpdateInterfaceRequest {
 
   [[nodiscard("Interface update neccesity should not be ignored")]]
   bool requiresQuery() const noexcept {
-	return address || private_key || listen_port || check_subnet;
+	return endpoint || address || private_key || listen_port || check_subnet;
   }
 };
 

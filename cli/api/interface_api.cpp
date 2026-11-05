@@ -45,38 +45,44 @@ InterfaceApi::InterfaceApi(std::shared_ptr<IHttpSender> sender,
   cfg_mgr_ = std::move(cfg_mgr);
 }
 
-InterfaceConfig InterfaceApi::get(const std::string& iface) const {
-  if (!ensureConfigOpenedImpl(iface))
+InterfaceConfig InterfaceApi::get(const GetInterfaceConfigRequest& req) const {
+  if (req.endpoint && !ensureConfigOpenedImpl(req.iface))
 	throw std::runtime_error("Failed to open config to read daemon details");
 
-  HttpRequest req{};
-  req.method = http::to_string(http::verb::get);
+  HttpRequest http_req{};
+  http_req.method = http::to_string(http::verb::get);
 
-  auto u = getEncodedUrlImpl();
+  auto u = getEncodedUrlImpl(req.endpoint);
   u.set_path("/interface");
-  req.target = u.buffer();
+  http_req.target = u.buffer();
 
-  auto res = sender_->send(req);
+  auto res = sender_->send(http_req);
   if (res.status == static_cast<int>(http::status::internal_server_error))
 	throw std::runtime_error("Internal server error occured while processing request");
 
   return serializer_->deserialize(res.body);
 }
 
-void InterfaceApi::update(const InterfaceConfig& iface) {
-  if (!ensureConfigOpenedImpl(iface.name))
+void InterfaceApi::update(const UpdateInterfaceRequest& req) {
+  if (req.endpoint && !ensureConfigOpenedImpl(req.iface))
 	throw std::runtime_error("Failed to open config to read daemon details");
 
-  HttpRequest req{};
-  req.method = http::to_string(http::verb::patch);
+  HttpRequest http_req{};
+  http_req.method = http::to_string(http::verb::patch);
 
-  auto u = getEncodedUrlImpl();
+  auto u = getEncodedUrlImpl(req.endpoint);
   u.set_path("/interface");
-  req.target = u.buffer();
+  http_req.target = u.buffer();
 
-  req.body = json::serialize(json::value_from(iface));
+  json::object o{
+      {"privateKey", req.private_key.value_or("")},
+      {   "address",     req.address.value_or("")},
+      {"listenPort",              req.listen_port}
+  };
 
-  auto res = sender_->send(req);
+  http_req.body = json::serialize(json::value_from(o));
+
+  auto res = sender_->send(http_req);
   if (res.status == static_cast<int>(http::status::bad_request))
 	throw std::invalid_argument("Invalid data provided");
   if (res.status == static_cast<int>(http::status::internal_server_error))
@@ -94,7 +100,22 @@ bool InterfaceApi::ensureConfigOpenedImpl(const std::string& iface) const {
   return true;
 }
 
-urls::url InterfaceApi::getEncodedUrlImpl() const {
+urls::url InterfaceApi::getEncodedUrlImpl(std::optional<std::string> endpoint) const {
+  urls::url u;
+  if (endpoint) {
+	const auto colon_pos = endpoint->find(':');
+	if (colon_pos == std::string::npos)
+	  throw std::invalid_argument("Invalid endpoint");
+	try {
+	  u.set_scheme("http")
+	      .set_host(endpoint->substr(0, colon_pos))
+	      .set_port(endpoint->substr(colon_pos + 1));
+	} catch (const boost::system::system_error&) {
+	  throw std::invalid_argument(std::format("Invalid remote host endpoint: {}", *endpoint));
+	}
+	return u;
+  }
+
   ConfigReadRegister::ReadReturnCode rc;
   cfg_mgr_->beginTransaction();
 
@@ -117,7 +138,6 @@ urls::url InterfaceApi::getEncodedUrlImpl() const {
   if (*port_opt > std::numeric_limits<in_port_t>::max() && *port_opt == 0)
 	throw std::invalid_argument("Invalid ListenPort value for [Server]");
 
-  urls::url u;
   u.set_scheme("http").set_encoded_host(*addr_opt).set_port_number(*port_opt);
   return u;
 }
