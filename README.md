@@ -18,7 +18,7 @@
 6. [Deployment](#-deployment):
    - [Docker Compose (recommended)](#-option-1-deploy-using-docker-compose-recommended)
    - [Docker CLI](#-option-2-deploy-using-docker-cli)
-   - [Docker locally](#-option-3-building-the-docker-image-locally)
+   - [Docker locally](#%EF%B8%8F-option-3-building-the-docker-image-locally)
 7. [Documentation](#-documentation):
    - [C++](#c)
    - [HTTP API](#http-api)
