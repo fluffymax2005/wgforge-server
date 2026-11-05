@@ -32,7 +32,7 @@
 
 #include "request_handler.h"
 
-#include <boost/url/impl/parse.hpp>
+#include <boost/url/parse.hpp>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -71,4 +71,4 @@ void RequestHandler::handle_request(const http::request<beast::http::string_body
   res.prepare_payload();
 }
 
-} // namespace WgForge
+}  // namespace WgForge

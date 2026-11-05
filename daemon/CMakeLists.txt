@@ -30,7 +30,7 @@ if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif()
 
-find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
+find_package(Boost 1.83 REQUIRED COMPONENTS url json CONFIG)
 find_package(wgcpp REQUIRED)
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)

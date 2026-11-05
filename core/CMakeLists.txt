@@ -29,7 +29,7 @@ if(POLICY CMP0167)
 endif()
 
 # External libs
-find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
+find_package(Boost 1.83 REQUIRED COMPONENTS url json CONFIG)
 find_package(wgcpp REQUIRED)
 
 # ODB
@@ -61,6 +61,7 @@ foreach(HEADER ${ENTITIES_HEADERS})
         COMMAND ${ODB_EXECUTABLE}
             -d sqlite
             --std c++23
+            -x ${CMAKE_CXX_COMPILER}
             --generate-schema
             --generate-query
             --schema-format embedded

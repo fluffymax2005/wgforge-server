@@ -23,7 +23,7 @@
 #include "peer_controller.h"
 
 #include <boost/url/decode.hpp>
-#include <boost/url/impl/parse.hpp>
+#include <boost/url/parse.hpp>
 
 #include "endpoint_notfound.h"
 #include "endpoint_runtime_error.h"

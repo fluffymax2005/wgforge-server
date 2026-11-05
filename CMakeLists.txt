@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.3.1)
+cmake_minimum_required(VERSION 3.28)
 
 set(PROJECT_NAME_CORE wgforge)
 

@@ -91,6 +91,8 @@ struct Peer {
   }
 };
 
+#ifndef ODB_COMPILER
+
 inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) {
   jv = json::object{
       {                 "id",                         peer.id},
@@ -142,6 +144,8 @@ inline Peer tag_invoke(json::value_to_tag<Peer>, const json::value& jv) {
 
   return peer;
 }
+
+#endif
 
 }  // namespace WgForge
 

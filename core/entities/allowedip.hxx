@@ -57,6 +57,8 @@ struct AllowedIP {
   std::optional<std::string> deleted_at;
 };
 
+#ifndef ODB_COMPILER
+
 inline void tag_invoke(json::value_from_tag, json::value& jv, const AllowedIP& allowedip) {
   json::object o;
 
@@ -70,6 +72,8 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const AllowedIP& a
 
   jv = std::move(o);
 }
+
+#endif
 
 }  // namespace WgForge
 

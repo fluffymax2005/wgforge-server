@@ -1,0 +1,12 @@
+cmake-build-debug/
+#compile_commands.json/
+docs/
+systemd/
+.cache/
+.clang-format/
+build/
+.git/
+.gitignore
+.vscode/
+.idea/
+*.user

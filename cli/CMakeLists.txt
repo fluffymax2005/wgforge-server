@@ -32,7 +32,7 @@ endif()
 
 find_package(CLI11 CONFIG REQUIRED)
 find_package(wgcpp REQUIRED)
-find_package(Boost 1.92 REQUIRED COMPONENTS url json CONFIG)
+find_package(Boost 1.83 REQUIRED COMPONENTS url json CONFIG)
 
 add_executable(${WGFORGE_CLI_NAME}
     entrypoint/main.cpp

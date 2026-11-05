@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  wgforge-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wgforge-server:latest
+    container_name: wgforge-server
+    restart: unless-stopped
+    
+    # Interact with host's interfaces
+    network_mode: host
+    
+    # Kernel priviliges to manage virtual ifaces
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+    environment:
+      - INTERFACE=wg0 # Change interface name if needed
+
+    # Прокидываем модули ядра и том для хранения базы данных / конфигураций
+    volumes:
+      - /etc/wgforge:/etc/wgforge
+      - /var/lib/wgforge:/var/lib/wgforge

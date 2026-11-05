@@ -13,11 +13,15 @@
    - [Linux](#linux)
    - [MacOS](#macos)
    - [Windows](#windows)
-5. [Installation](#installation)
-6. [Documentation](#documentation):
+1. [Installation](#installation)
+2. [Deployment](#deployment):
+   - [Docker Compose (recommended)](#option-1-deploy-using-docker-compose-recommended)
+   - [Docker CLI](#option-2-deploy-using-docker-cli)
+   - [Docker locally](#option-3-building-the-docker-image-locally)
+4. [Documentation](#documentation):
    - [C++](#c++)
    - [HTTP API](#http-api)
-7. [Contributing](#contributing)
+8. [Contributing](#contributing)
 
 
 # Introduction
@@ -162,6 +166,97 @@ sudo cmake --install build --component wgforge-cli
 Install Server only (Linux):
 ```bash
 sudo cmake --install build --component wgforge-server
+```
+
+
+# Deployment (Docker)
+
+The **WgForge Server** daemon can be easily deployed inside an isolated Docker container.
+
+> ⚠️ **Important Requirement:** 
+> Since WireGuard operates at the Linux kernel level, the container **must** be executed with `--cap-add=NET_ADMIN`, `--cap-add=SYS_MODULE` and `--net=host` to manage host network interfaces.
+
+---
+
+## Configuration Reference
+
+### Environment Variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `INTERFACE` | `wg0` | The name of the WireGuard network interface to be created and managed. |
+
+### Persistent Volumes
+
+To prevent data loss (SQLite database and configurations) when restarting or updating the container, mount host directories to the following container paths:
+
+| Container Path | Description |
+| :--- | :--- |
+| `/etc/wgforge` | Service configuration files. |
+| `/var/lib/wgforge` | Persistent SQLite3 database files. |
+
+---
+
+## Option 1: Deploy using Docker Compose (Recommended)
+
+Create a `docker-compose.yml` file in your working directory:
+
+```yaml
+version: '3.8'
+
+services:
+  wgforge-server:
+    image: wgforge-server:latest
+    container_name: wgforge-server
+    restart: unless-stopped
+    
+    # Required for WireGuard kernel network interface management
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      
+    environment:
+      - INTERFACE=wg0 # Change interface name if needed
+      
+    volumes:
+      - /etc/wgforge:/etc/wgforge
+      - /var/lib/wgforge:/var/lib/wgforge
+```
+
+Start daemon in detached mode:
+```bash
+docker compose up -d
+```
+
+Check server logs:
+```bash
+docker compose logs -f
+```
+
+## Option 2: Deploy using Docker CLI
+
+Run the container using the standard docker run command:
+```bash
+docker run -d \
+  --name wgforge-server \
+  --restart unless-stopped \
+  --net=host \
+  --cap-add=NET_ADMIN \
+  --cap-add=SYS_MODULE \
+  -e INTERFACE=wg0 \
+  -v /etc/wgforge:/etc/wgforge \
+  -v /var/lib/wgforge:/var/lib/wgforge \
+  wgforge-server:latest
+```
+
+## Option 3: Building the Docker Image Locally
+
+If you want to build the Docker image yourself from the source code (see opt):
+```bash
+git clone --recursive https://github.com/fluffymax2005/wgforge-server.git
+cd wgforge-server
+docker build -t wgforge-server:latest .
 ```
 
 
