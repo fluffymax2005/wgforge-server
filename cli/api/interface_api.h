@@ -1,6 +1,6 @@
 /*
  * interface_api.h
- * wgforge-cli — CLI frontend for wgforge-server (C
+ * wgforge-cli — CLI frontend for wgforge-server (C)
  * copyright (c) 2026  ledovskiy maksim aka fluffymax2005
  * <santech_montage@mail.ru>
  *

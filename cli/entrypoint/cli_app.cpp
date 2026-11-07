@@ -212,7 +212,7 @@ void CliApp::setupOptions() {
 
   // CMD: server
   // Local server updating is available for Linux
-#if !defined(WGFORGE_CLI_WINDOWS) && !defined(WGFORGE_CLI_MACOS)
+#ifdef __linux__
 
   auto cmd_srv = app_.add_subcommand("server", "Get HTTP server configuration");
   cmd_srv->require_subcommand(0, 1);
@@ -234,6 +234,53 @@ void CliApp::setupOptions() {
 
   cmd_srv_upd->callback(
       [this, srv_upd_req] { cli_controller_->updateServerConfig(std::move(*srv_upd_req)); });
+
+#endif
+
+#ifdef __linux__
+
+  // CMD: server deploy
+  auto cmd_srv_deploy =
+      cmd_srv->add_subcommand("deploy", "Deploy WgForge Server container via Docker REST API");
+  auto deploy_req = std::make_shared<DeployServerRequest>();
+
+  cmd_srv_deploy->add_option("--image", deploy_req->image,
+                             "Docker image tag (default: fluffymax2005/wgforge-server:latest)");
+  cmd_srv_deploy->add_option("-i,--interface", deploy_req->iface,
+                             "Wireguard interface name (default: wg0)");
+  cmd_srv_deploy->add_option("--config-dir", deploy_req->config_path,
+                             "Host path for configs (default: /etc/wgforge)");
+  cmd_srv_deploy->add_option("--data-dir", deploy_req->data_path,
+                             "Host path for DB (default: /var/lib/wgforge)");
+  cmd_srv_deploy->add_option("--ssh", deploy_req->ssh_host,
+                             "Remote SSH host (e.g. root@192.168.1.100 or 192.168.1.100)");
+  cmd_srv_deploy->add_option("--ssh-port", deploy_req->ssh_port, "Remote SSH port (default: 22)");
+  cmd_srv_deploy->add_option("--ssh-key", deploy_req->ssh_key,
+                             "Path to custom private SSH key file");
+  cmd_srv_deploy->add_option("--ssh-password", deploy_req->ssh_password,
+                             "SSH password (if key authentication is not configured)");
+
+  cmd_srv_deploy->callback([this, deploy_req] { cli_controller_->deployServer(*deploy_req); });
+
+  // CMD: server teardown
+  auto cmd_srv_teardown = cmd_srv->add_subcommand("teardown", "Teardown WgForge Server container");
+  auto teardown_req = std::make_shared<TeardownServerRequest>();
+
+  cmd_srv_teardown
+      ->add_option("name", teardown_req->container_name,
+	               "WgForge Server container ID or name (e.g. wgforge-server_wg0)")
+      ->required();
+  cmd_srv_teardown->add_option("--ssh", teardown_req->ssh_host,
+                               "Remote SSH host (e.g. root@192.168.1.100 or 192.168.1.100)");
+  cmd_srv_teardown->add_option("--ssh-port", teardown_req->ssh_port,
+                               "Remote SSH port (default: 22)");
+  cmd_srv_teardown->add_option("--ssh-key", teardown_req->ssh_key,
+                               "Path to custom private SSH key file");
+  cmd_srv_teardown->add_option("--ssh-password", teardown_req->ssh_password,
+                               "SSH password (if key authentication is not configured)");
+
+  cmd_srv_teardown->callback(
+      [this, teardown_req] { cli_controller_->teardownServer(*teardown_req); });
 
 #endif
 }

@@ -29,7 +29,8 @@ namespace WgForge {
 CliController::CliController(std::shared_ptr<IPeerManager> peer_mgr,
                              std::shared_ptr<IInterfaceManager> iface_mgr,
                              std::shared_ptr<IServerManager> srv_mgr,
-                             std::shared_ptr<IDataProcessor> data_prs, std::ostream& os)
+                             std::shared_ptr<IDataProcessor> data_prs,
+                             std::shared_ptr<IDeployManager> deploy_mgr, std::ostream& os)
     : os_(os) {
   if (peer_mgr == nullptr)
 	throw std::invalid_argument("Peer manager is nullptr");
@@ -39,11 +40,14 @@ CliController::CliController(std::shared_ptr<IPeerManager> peer_mgr,
 	throw std::invalid_argument("Server manager is nullptr");
   if (data_prs == nullptr)
 	throw std::invalid_argument("Data processor is nullptr");
+  if (deploy_mgr == nullptr)
+	throw std::invalid_argument("Deploy manager is nullptr");
 
   peer_mgr_ = std::move(peer_mgr);
   iface_mgr_ = std::move(iface_mgr);
   srv_mgr_ = std::move(srv_mgr);
   data_prs_ = std::move(data_prs);
+  deploy_mgr_ = std::move(deploy_mgr);
 }
 
 void CliController::getPeer(const GetPeerRequest& req) {
@@ -117,6 +121,18 @@ void CliController::getServerConfig(const GetServerConfigRequest& req) {
 void CliController::updateServerConfig(const UpdateServerRequest& req) {
   srv_mgr_->updateConfig(req);
   os_ << ENDLINE << "Server config updated successfully" << ENDLINE << ENDLINE;
+}
+
+void CliController::deployServer(const DeployServerRequest& req) {
+  os_ << ENDLINE;
+  deploy_mgr_->deploy(req, os_);
+  os_ << ENDLINE;
+}
+
+void CliController::teardownServer(const TeardownServerRequest& req) {
+  os_ << ENDLINE;
+  deploy_mgr_->teardown(req, os_);
+  os_ << ENDLINE;
 }
 
 

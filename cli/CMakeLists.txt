@@ -34,6 +34,9 @@ find_package(CLI11 CONFIG REQUIRED)
 find_package(wgcpp REQUIRED)
 find_package(Boost 1.83 REQUIRED COMPONENTS url json CONFIG)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBSSH REQUIRED IMPORTED_TARGET libssh)
+
 add_executable(${WGFORGE_CLI_NAME}
     entrypoint/main.cpp
     entrypoint/cli_app.cpp
@@ -42,16 +45,20 @@ add_executable(${WGFORGE_CLI_NAME}
 
     api/peer_api.cpp
     api/interface_api.cpp
+    api/docker_api.cpp
 
     managers/interface_manager.cpp
     managers/peer_manager.cpp
     managers/server_manager.cpp
+    managers/deploy_manager.cpp
 
     parsers/interface_serializer.cpp
     parsers/peer_serializer.cpp
     parsers/data_processor.cpp
 
     senders/boost_beast_http_sender.cpp
+
+    services/ssh_tunnel.cpp
 )
 
 # Add Boost.DI (boost-ext library)
@@ -68,6 +75,7 @@ target_link_libraries(${WGFORGE_CLI_NAME}
         Boost::url
         Boost::json
         Boost.DI
+        PkgConfig::LIBSSH
 )
 
 target_include_directories(${WGFORGE_CLI_NAME}
@@ -80,6 +88,7 @@ target_include_directories(${WGFORGE_CLI_NAME}
         managers/
         parsers/
         senders/
+        services/
         api/
 
 )

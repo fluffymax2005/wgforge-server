@@ -27,6 +27,8 @@
 #include "boost_beast_http_sender.h"
 #include "cli_app.h"
 #include "data_processor.h"
+#include "deploy_manager.h"
+#include "docker_api.h"
 #include "interface_api.h"
 #include "interface_manager.h"
 #include "interface_serializer.h"
@@ -51,6 +53,9 @@ int main(int argc, char* argv[]) {
 
       di::bind<WgForge::IPeerApi>().to<WgForge::PeerApi>(),
       di::bind<WgForge::IInterfaceApi>().to<WgForge::InterfaceApi>(),
+
+      di::bind<WgForge::IDockerApi>().to([] { return std::make_shared<WgForge::DockerApi>(); }),
+      di::bind<WgForge::IDeployManager>().to<WgForge::DeployManager>(),
 
       di::bind<WgForge::ISerializer<WgForge::Peer>>().to<WgForge::PeerSerializer>(),
       di::bind<WgForge::ISerializer<WgForge::InterfaceConfig>>().to<WgForge::InterfaceSerializer>(),
