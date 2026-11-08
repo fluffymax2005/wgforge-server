@@ -28,6 +28,8 @@
 #include <filesystem>
 #include <iostream>
 
+#include "spinner.hpp"
+
 namespace WgForge {
 
 namespace fs = std::filesystem;
@@ -47,6 +49,7 @@ SshTunnel::~SshTunnel() {
 }
 
 void SshTunnel::start(const std::string& local_socket_path, std::ostream& os) {
+  local_socket_path_ = local_socket_path;
   session_ = ssh_new();
   if (session_ == nullptr)
 	throw std::runtime_error(
@@ -56,9 +59,11 @@ void SshTunnel::start(const std::string& local_socket_path, std::ostream& os) {
   ssh_options_set(session_, SSH_OPTIONS_PORT, &port_);
   ssh_options_set(session_, SSH_OPTIONS_USER, user_.c_str());
 
-  std::println(os, "==> Connecting to SSH {}@{}:{}\n", user_, host_, port_);
-  if (ssh_connect(session_) != SSH_OK)
-	throw std::runtime_error(std::format("Failed to connect. Reason: {}", ssh_get_error(session_)));
+  Spinner::run(os, std::format("Connecting to SSH {}@{}:{}", user_, host_, port_), [&] {
+	if (ssh_connect(session_) != SSH_OK)
+	  throw std::runtime_error(
+	      std::format("Failed to connect. Reason: {}", ssh_get_error(session_)));
+  });
 
   authenticate(os);
 
@@ -76,6 +81,7 @@ void SshTunnel::start(const std::string& local_socket_path, std::ostream& os) {
 	  while (running_) {
 		stream_protocol::socket local_sock(ioc);
 		acceptor.accept(local_sock);
+		local_sock.non_blocking(true);
 
 		// Open SSH pipe to forward to remote /var/run/docker.sock
 		ssh_channel channel = ssh_channel_new(session_);
@@ -89,16 +95,24 @@ void SshTunnel::start(const std::string& local_socket_path, std::ostream& os) {
 		char buf[4096];  // 4 KiB
 		boost::system::error_code ec;
 
-		while (running_ && local_sock.is_open()) {
+		while (running_ && local_sock.is_open() && !ssh_channel_is_eof(channel)) {
 		  size_t len = local_sock.read_some(asio::buffer(buf), ec);
-		  if (ec)
+		  if (len > 0)
+			ssh_channel_write(channel, buf, static_cast<uint32_t>(len));
+		  else if (ec && ec != asio::error::would_block)
 			break;
 
-		  ssh_channel_write(channel, buf, len);
-
 		  int nBytes = ssh_channel_read_nonblocking(channel, buf, sizeof(buf), 0);
-		  if (nBytes > 0)
+		  if (nBytes > 0) {
 			asio::write(local_sock, asio::buffer(buf, nBytes), ec);
+			if (ec)
+			  break;
+		  } else if (nBytes == SSH_ERROR) {
+			break;
+		  }
+
+		  if (len == 0 && nBytes == 0)
+			std::this_thread::sleep_for(std::chrono::milliseconds(5));
 		}
 
 		ssh_channel_close(channel);
@@ -121,44 +135,67 @@ void SshTunnel::stop() {
 	ssh_disconnect(session_);
 	ssh_free(session_);
 	session_ = nullptr;
+
+	fs::remove(local_socket_path_);
+	local_socket_path_.clear();
   }
 }
 
 void SshTunnel::authenticate(std::ostream& os) {
   // 1. Authorization attempt by explicit key
+  bool success = false;
   if (!key_path_.empty()) {
-	std::println(os, "==> Trying to authorize with explicit key...\n");
-	ssh_key key = nullptr;
-	if (ssh_pki_import_privkey_file(key_path_.c_str(), nullptr, nullptr, nullptr, &key) == SSH_OK) {
-	  int rc = ssh_userauth_publickey(session_, nullptr, key);
-	  ssh_key_free(key);
-	  if (rc == SSH_AUTH_SUCCESS) {
-		std::println(os, "==> Authorization by key succeeded\n");
-		return;
-	  }
-	  std::println(os, "==> Warning: failed to authorize by key. Keeping on...\n");
-	} else {
-	  std::println(os, "==> Failed to import private key file \"{}\". Keeping on...", key_path_);
+	try {
+	  Spinner::run(os, "Trying to authorize with explicit key\n", [this, &os, &success] {
+		ssh_key key = nullptr;
+		if (ssh_pki_import_privkey_file(key_path_.c_str(), nullptr, nullptr, nullptr, &key) ==
+		    SSH_OK) {
+		  int rc = ssh_userauth_publickey(session_, nullptr, key);
+		  ssh_key_free(key);
+		  if (rc == SSH_AUTH_SUCCESS) {
+			success = true;
+			return;
+		  }
+		  throw std::runtime_error("");
+		}
+	  });
+	} catch (...) {
 	}
   }
 
-  // 2. Variant A: Automatic authorization (ssh-agent + id_rsa / id_ed25519)
-  std::println(os, "==> Trying to authorize via SSH agent...");
-  if (ssh_userauth_publickey_auto(session_, nullptr, nullptr) == SSH_AUTH_SUCCESS) {
-	std::println(os, "==> Authorization with SSH agent succeeded\n");
+  if (success)
 	return;
+
+  // 2. Variant A: Automatic authorization (ssh-agent + id_rsa / id_ed25519)
+  try {
+	Spinner::run(os, "Trying to authorize via SSH agent", [this, &success] {
+	  if (ssh_userauth_publickey_auto(session_, nullptr, nullptr) == SSH_AUTH_SUCCESS) {
+		success = true;
+		return;
+	  }
+	  throw std::runtime_error("");
+	});
+  } catch (...) {
   }
-  std::println(os, "==> Warning: automatic authorization failed. Keeping on...\n");
+
+  if (success)
+	return;
 
   // 3. Variant B: Password authorization
   if (!password_.empty()) {
-	std::println(os, "==> Attempting to authorize with password\n");
-	if (ssh_userauth_password(session_, nullptr, password_.c_str()) == SSH_AUTH_SUCCESS) {
-	  std::println(os, "==> Succeeded");
+	try {
+	  Spinner::run(os, "Attempting to authorize with password", [this, &success] {
+		if (ssh_userauth_password(session_, nullptr, password_.c_str()) == SSH_AUTH_SUCCESS) {
+		  success = true;
+		  return;
+		}
+	  });
+	} catch (...) {
 	}
   }
 
-  throw std::runtime_error("Failed to authenticate");
+  if (!success)
+	throw std::runtime_error("Failed to authenticate");
 }
 
 void SshTunnel::parseHostToString() {

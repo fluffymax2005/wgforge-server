@@ -31,6 +31,19 @@ namespace WgForge {
 namespace json = boost::json;
 using stream_protocol = boost::asio::local::stream_protocol;
 
+namespace {
+std::string extractDockerError(std::string_view body) {
+  try {
+	auto obj = boost::json::parse(body).as_object();
+	if (obj.contains("message"))
+	  return std::string(obj["message"].as_string());
+  } catch (...) {
+  }
+
+  throw std::runtime_error(std::format("Unknown Docker error: {}", body));
+}
+}  // namespace
+
 DockerApi::DockerApi(std::string socket_path) : socket_path_(std::move(socket_path)) {
 }
 
@@ -68,9 +81,8 @@ void DockerApi::ping() {
   http::request<http::empty_body> req{http::verb::get, "/_ping", 11};
   auto res = sendRequest(req);
   if (res.result() == http::status::internal_server_error) {
-	throw std::runtime_error(
-	    std::format("Failed to test Docker server is accessible. Reason: {}",
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::runtime_error(std::format("Failed to test Docker server is accessible. Reason: {}",
+	                                     extractDockerError(res.body())));
   }
 }
 
@@ -83,8 +95,7 @@ void DockerApi::pullImage(const std::string& image) {
 	throw std::runtime_error("Target image is not found");
   if (res.result() == http::status::internal_server_error)
 	throw std::runtime_error(
-	    std::format("Failed to pull image: {}. Reason: {}", image,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	    std::format("Failed to pull image: {}. Reason: {}", image, extractDockerError(res.body())));
 }
 
 void DockerApi::createContainer(const DeployServerRequest& req) {
@@ -115,20 +126,17 @@ void DockerApi::createContainer(const DeployServerRequest& req) {
 
   auto res = sendRequest(http_req);
   if (res.result() == http::status::bad_request)
-	throw std::invalid_argument(
-	    std::format("Failed to create container \"{}\". Bad parameter: {}", req.container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::invalid_argument(std::format("Failed to create container \"{}\". Bad parameter: {}",
+	                                        req.container_name, extractDockerError(res.body())));
   if (res.result() == http::status::not_found)
 	throw std::runtime_error(std::format("Failed to create container \"{}\". No such image: {}",
 	                                     req.container_name, req.image));
   if (res.result() == http::status::conflict)
-	throw std::invalid_argument(
-	    std::format("Failed to create container \"{}\". Confict: {}", req.container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::invalid_argument(std::format("Failed to create container \"{}\". Confict: {}",
+	                                        req.container_name, extractDockerError(res.body())));
   if (res.result() == http::status::internal_server_error)
-	throw std::invalid_argument(
-	    std::format("Failed to create container \"{}\". Reason: {}", req.container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::invalid_argument(std::format("Failed to create container \"{}\". Reason: {}",
+	                                        req.container_name, extractDockerError(res.body())));
 }
 
 void DockerApi::startContainer(const std::string& container_name) {
@@ -140,9 +148,8 @@ void DockerApi::startContainer(const std::string& container_name) {
 	throw std::runtime_error(std::format("Container \"{}\" already started", container_name));
   if (res.result() == http::status::bad_request ||
       res.result() == http::status::internal_server_error)
-	throw std::runtime_error(
-	    std::format("Failed to start container \"{}\". Reason: {}", container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::runtime_error(std::format("Failed to start container \"{}\". Reason: {}",
+	                                     container_name, extractDockerError(res.body())));
 }
 
 void DockerApi::stopAndRemoveContainer(const std::string& container_name) {
@@ -153,9 +160,8 @@ void DockerApi::stopAndRemoveContainer(const std::string& container_name) {
   if (res.result() == http::status::not_modified)
 	throw std::runtime_error(std::format("Container \"{}\" already stopped", container_name));
   if (res.result() == http::status::internal_server_error)
-	throw std::runtime_error(
-	    std::format("Failed to stop container \"{}\". Reason: {}", container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+	throw std::runtime_error(std::format("Failed to stop container \"{}\". Reason: {}",
+	                                     container_name, extractDockerError(res.body())));
   if (res.result() == http::status::not_found)
 	throw std::runtime_error(std::format("No such container found: {}", container_name));
 
@@ -168,7 +174,7 @@ void DockerApi::stopAndRemoveContainer(const std::string& container_name) {
 	throw std::runtime_error(
 
 	    std::format("Failed to remove container \"{}\". Reason: {}", container_name,
-		            json::parse(res.body()).as_object()["message"].as_string()));
+		            extractDockerError(res.body())));
   if (res.result() == http::status::not_found)
 	throw std::runtime_error(std::format("No such container found: {}", container_name));
 }

@@ -202,7 +202,7 @@ void CliApp::setupOptions() {
   auto cmd_iface_upd =
       cmd_iface->add_subcommand("update", "Update Wireguard interface configuration");
   auto iface_upd_req = std::make_shared<UpdateInterfaceRequest>();
-  cmd_iface_upd->add_option("-e,--endpoint", iface_get_req->endpoint, ENDPOINT_DESCRIPTION);
+  cmd_iface_upd->add_option("-e,--endpoint", iface_upd_req->endpoint, ENDPOINT_DESCRIPTION);
   cmd_iface_upd->add_option("-a,--address", iface_upd_req->address, "New listening address");
   cmd_iface_upd->add_option("-p,--private-key", iface_upd_req->private_key, "New private key");
   cmd_iface_upd->add_option("-l,--listen-port", iface_upd_req->listen_port, "New listen port");
@@ -211,10 +211,8 @@ void CliApp::setupOptions() {
       [this, iface_upd_req] { cli_controller_->updateInterfaceConfig(*iface_upd_req); });
 
   // CMD: server
-  // Local server updating is available for Linux
-#ifdef __linux__
 
-  auto cmd_srv = app_.add_subcommand("server", "Get HTTP server configuration");
+  auto cmd_srv = app_.add_subcommand("server", "Get HTTP server configuration. Linux only");
   cmd_srv->require_subcommand(0, 1);
   auto srv_get_cfg = std::make_shared<GetServerConfigRequest>();
   cmd_srv->add_option("interface", srv_get_cfg->iface, "Wireguard interface name");
@@ -224,7 +222,8 @@ void CliApp::setupOptions() {
 	  cli_controller_->getServerConfig(*srv_get_cfg);
   });
 
-  auto cmd_srv_upd = cmd_srv->add_subcommand("update", "Update HTTP server configuration");
+  auto cmd_srv_upd =
+      cmd_srv->add_subcommand("update", "Update HTTP server configuration. Linux only");
   auto srv_upd_req = std::make_shared<UpdateServerRequest>();
   cmd_srv_upd->add_option("interface", srv_upd_req->iface, "Wireguard interface name");
   cmd_srv_upd->add_option("-a,--address", srv_upd_req->address,
@@ -235,19 +234,17 @@ void CliApp::setupOptions() {
   cmd_srv_upd->callback(
       [this, srv_upd_req] { cli_controller_->updateServerConfig(std::move(*srv_upd_req)); });
 
-#endif
-
-#ifdef __linux__
-
   // CMD: server deploy
-  auto cmd_srv_deploy =
-      cmd_srv->add_subcommand("deploy", "Deploy WgForge Server container via Docker REST API");
+  auto cmd_srv_deploy = cmd_srv->add_subcommand("deploy",
+                                                "Deploy WgForge Server container via Docker REST "
+                                                "API. Local deploying is avalable on Linux only");
   auto deploy_req = std::make_shared<DeployServerRequest>();
 
   cmd_srv_deploy->add_option("--image", deploy_req->image,
                              "Docker image tag (default: fluffymax2005/wgforge-server:latest)");
-  cmd_srv_deploy->add_option("-i,--interface", deploy_req->iface,
-                             "Wireguard interface name (default: wg0)");
+  cmd_srv_deploy
+      ->add_option("-i,--interface", deploy_req->iface, "Wireguard interface name (default: wg0)")
+      ->required();
   cmd_srv_deploy->add_option("--config-dir", deploy_req->config_path,
                              "Host path for configs (default: /etc/wgforge)");
   cmd_srv_deploy->add_option("--data-dir", deploy_req->data_path,
@@ -260,10 +257,15 @@ void CliApp::setupOptions() {
   cmd_srv_deploy->add_option("--ssh-password", deploy_req->ssh_password,
                              "SSH password (if key authentication is not configured)");
 
-  cmd_srv_deploy->callback([this, deploy_req] { cli_controller_->deployServer(*deploy_req); });
+  cmd_srv_deploy->callback([this, deploy_req] {
+	deploy_req->generateContainerName();
+	cli_controller_->deployServer(*deploy_req);
+  });
 
   // CMD: server teardown
-  auto cmd_srv_teardown = cmd_srv->add_subcommand("teardown", "Teardown WgForge Server container");
+  auto cmd_srv_teardown = cmd_srv->add_subcommand(
+      "teardown",
+      "Teardown WgForge Server container. Local teardowning is available on Linux only");
   auto teardown_req = std::make_shared<TeardownServerRequest>();
 
   cmd_srv_teardown
@@ -281,8 +283,6 @@ void CliApp::setupOptions() {
 
   cmd_srv_teardown->callback(
       [this, teardown_req] { cli_controller_->teardownServer(*teardown_req); });
-
-#endif
 }
 
 }  // namespace WgForge

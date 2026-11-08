@@ -26,6 +26,7 @@
 #include <memory>
 
 #include "docker_api.h"
+#include "spinner.hpp"
 #include "ssh_tunnel.h"
 
 namespace WgForge {
@@ -42,83 +43,64 @@ DeployManager::DeployManager(std::shared_ptr<IDockerApi> docker_api) {
 void DeployManager::deploy(const DeployServerRequest& req, std::ostream& os) {
   std::unique_ptr<SshTunnel> tunnel;
   auto active_api = docker_api_;
-  std::string tunnel_socket = "/tmp/wgforge_ssh_docker.sock";
+
+  auto tunnel_socket = (fs::temp_directory_path() / "wgforge_ssh_docker.sock").string();
 
   // If SSH host pointed explicitly then forward socket through SSH
   if (!req.ssh_host.empty()) {
 	tunnel = std::make_unique<SshTunnel>(req.ssh_host, req.ssh_port, req.ssh_key, req.ssh_password);
-	if (tunnel == nullptr)
-	  throw std::runtime_error(
-	      "Failed to establish SSH connection. Reason: not enough memory to create connection");
 	tunnel->start(tunnel_socket, os);
 
 	// Forward DockerApi into forwarded socket via SSH
 	active_api = std::make_shared<DockerApi>(tunnel_socket);
-	if (active_api == nullptr) {
-	  tunnel->stop();
-	  fs::remove(tunnel_socket);
-	  throw std::runtime_error("Failed to deploy container. Reason: internal program error");
-	}
   }
 
-  std::println(os, "Checking Docker Daemon connection...");
-  std::println(os);
-  active_api->ping();
+  Spinner::run(os, "Checking Docker Daemon connection", [&] { active_api->ping(); });
 
-  std::println(os, "==> Pulling Docker image \"{}\"...", req.image);
-  std::println(os);
-  active_api->pullImage(req.image);
+  Spinner::run(os, std::format("Pulling Docker image \"{}\"", req.image),
+               [&] { active_api->pullImage(req.image); });
 
   // Remove old container before creating new one. Suppress any exceptions
   try {
-	active_api->stopAndRemoveContainer(req.container_name);
+	Spinner::run(
+	    os, std::format("Removing old running container \"{}\" if presented", req.container_name),
+	    [&] { active_api->stopAndRemoveContainer(req.container_name); });
   } catch (...) {
   }
 
-  std::println(os, "==> Creating Docker container \"{}\"...", req.container_name);
-  std::println(os);
-  active_api->createContainer(req);
+  Spinner::run(os, std::format("Creating Docker container \"{}\"", req.container_name),
+               [&] { active_api->createContainer(req); });
 
-  std::println(os, "==> Starting Docker container \"{}\"...", req.container_name);
-  std::println(os);
-  active_api->startContainer(req.container_name);
+  Spinner::run(os, std::format("Starting Docker container \"{}\"", req.container_name),
+               [&] { active_api->startContainer(req.container_name); });
 
-  std::println(os, "==> Deployment completed succesfully <==");
+  std::println(os, "\n==> Deployment completed succesfully <==");
 
-  if (tunnel) {
+  if (tunnel)
 	tunnel->stop();
-	fs::remove(tunnel_socket);
-  }
 }
 
 void DeployManager::teardown(const TeardownServerRequest& req, std::ostream& os) {
   std::unique_ptr<SshTunnel> tunnel;
   auto active_api = docker_api_;
-  std::string tunnel_socket = "/tmp/wgforge_ssh_docker.sock";
+  auto tunnel_socket = (fs::temp_directory_path() / "wgforge_ssh_docker.sock").string();
 
   // If SSH host pointed explicitly then forward socket through SSH
   if (!req.ssh_host.empty()) {
 	tunnel = std::make_unique<SshTunnel>(req.ssh_host, req.ssh_port, req.ssh_key, req.ssh_password);
-	if (tunnel == nullptr)
-	  throw std::runtime_error(
-	      "Failed to establish SSH connection. Reason: not enough memory to create connection");
 	tunnel->start(tunnel_socket, os);
 
 	// Forward DockerApi into forwarded socket via SSH
 	active_api = std::make_shared<DockerApi>(tunnel_socket);
-	if (active_api == nullptr) {
-	  tunnel->stop();
-	  fs::remove(tunnel_socket);
-	  throw std::runtime_error("Failed to deploy container. Reason: internal program error");
-	}
   }
 
-  active_api->stopAndRemoveContainer(req.container_name);
+  Spinner::run(os, std::format("Stopping and removing container \"{}\"", req.container_name),
+               [&] { active_api->stopAndRemoveContainer(req.container_name); });
 
-  if (tunnel) {
+  std::println(os, "\n==> Tearing down completed succesfully <==");
+
+  if (tunnel)
 	tunnel->stop();
-	fs::remove(tunnel_socket);
-  }
 }
 
 

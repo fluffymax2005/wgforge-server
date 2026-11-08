@@ -46,6 +46,7 @@ private:
   std::string user_;
   std::string key_path_;
   std::string password_;
+  std::string local_socket_path_;
 
   ssh_session session_ = nullptr;
   std::atomic<bool> running_ = false;

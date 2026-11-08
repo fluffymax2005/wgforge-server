@@ -38,6 +38,8 @@ struct DeployServerRequest {
   int ssh_port = 22;
   std::string ssh_key = "";       // explicit path to private key
   std::string ssh_password = "";  // password in case of keys are missing
+
+  void generateContainerName() { container_name = "wgforge-server_" + iface; }
 };
 
 }  // namespace WgForge

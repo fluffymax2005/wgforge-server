@@ -30,12 +30,26 @@
 #include <wginterface.hpp>
 #include <wgprivatekey.hpp>
 
+// Some cli option should be ignores for Windows Family
+#if defined(_WIN32) || defined(_WIN64)
+  #define WGFORGE_CLI_WINDOWS
+#endif
+
+// As well as for MacOS
+#ifdef __MACOS__
+  #define WGFORGE_CLI_MACOS
+#endif
+
+#ifdef __linux__
+  #define WGFORGE_CLI_LINUX
+#endif
+
 /**
  * @brief Thread safety type for libwgcpp. Default one is SingleThreaded.
  */
 #define __THREAD_SAFETY__ SingleThreaded
 
-#if defined(__WIN32) || defined(__WIN64)
+#ifdef WGFORGE_CLI_WINDOWS
   #define ENDLINE "\r\n"
 #else
   #define ENDLINE "\n"
