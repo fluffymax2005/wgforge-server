@@ -55,6 +55,12 @@
   #define ENDLINE "\n"
 #endif
 
+// Ansi escape sequencies for pretty CLI formatting
+#define WGFORGE_CORE_ORANGE_COLOR     "\033[38;5;208m"
+#define WGFORGE_CORE_RED_COLOR        "\033[31m"
+#define WGFORGE_CORE_GREEN_COLOR      "\033[32m"
+#define WGFORGE_CORE_CLEAR_FORMATTING "\033[0m"
+
 namespace WgForge {
 
 // ConfigManager

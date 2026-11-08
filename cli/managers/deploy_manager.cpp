@@ -74,7 +74,8 @@ void DeployManager::deploy(const DeployServerRequest& req, std::ostream& os) {
   Spinner::run(os, std::format("Starting Docker container \"{}\"", req.container_name),
                [&] { active_api->startContainer(req.container_name); });
 
-  std::println(os, "\n==> Deployment completed succesfully <==");
+  std::println(os, "\n==> {}Deployment completed succesfully{} <==", WGFORGE_CORE_GREEN_COLOR,
+               WGFORGE_CORE_CLEAR_FORMATTING);
 
   if (tunnel)
 	tunnel->stop();
@@ -97,7 +98,8 @@ void DeployManager::teardown(const TeardownServerRequest& req, std::ostream& os)
   Spinner::run(os, std::format("Stopping and removing container \"{}\"", req.container_name),
                [&] { active_api->stopAndRemoveContainer(req.container_name); });
 
-  std::println(os, "\n==> Tearing down completed succesfully <==");
+  std::println(os, "\n==> {}Tearing down completed succesfully{} <==", WGFORGE_CORE_GREEN_COLOR,
+               WGFORGE_CORE_CLEAR_FORMATTING);
 
   if (tunnel)
 	tunnel->stop();

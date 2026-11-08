@@ -23,6 +23,8 @@
 #ifndef WGFORGE_CLI_SPINNER_HPP
 #define WGFORGE_CLI_SPINNER_HPP
 
+#include <wgforge.h>
+
 #include <array>
 #include <ostream>
 #include <stop_token>
@@ -43,7 +45,8 @@ public:
 	  size_t idx = 0;
 	  while (!stoken.stop_requested()) {
 		// Sequentionnaly display frames. Use \r to get to start of the line
-		std::print(os, "\r[{}] {}...", frames[idx % frames.size()], message);
+		std::print(os, "\r[{}{}{}] {}...", WGFORGE_CORE_ORANGE_COLOR, frames[idx % frames.size()],
+		           WGFORGE_CORE_CLEAR_FORMATTING, message);
 		os.flush();  // forcely display (disable buffering)
 		++idx;
 		std::this_thread::sleep_for(std::chrono::milliseconds(UPDATE_FREQUENCY_MS));
@@ -58,12 +61,16 @@ public:
 	  worker.request_stop();
 	  worker.join();
 
-	  std::println(os, "\r[+] {}... Done!", message);
+	  std::println(os, "\r[{}+{}] {}... {}Done{}", WGFORGE_CORE_GREEN_COLOR,
+	               WGFORGE_CORE_CLEAR_FORMATTING, message, WGFORGE_CORE_GREEN_COLOR,
+	               WGFORGE_CORE_CLEAR_FORMATTING);
 	} catch (...) {
 	  worker.request_stop();
 	  worker.join();
 
-	  std::println(os, "\r[x] {}... Failed!", message);
+	  std::println(os, "\r[{}x{}] {}... {}Failed{}", WGFORGE_CORE_RED_COLOR,
+	               WGFORGE_CORE_CLEAR_FORMATTING, message, WGFORGE_CORE_RED_COLOR,
+	               WGFORGE_CORE_CLEAR_FORMATTING);
 	  throw;
 	}
   }
