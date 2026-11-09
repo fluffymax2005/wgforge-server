@@ -20,7 +20,7 @@ services:
     environment:
       - INTERFACE=wg0 # Change interface name if needed
 
-    # Прокидываем модули ядра и том для хранения базы данных / конфигураций
+    # Forward kernel modules and volumes to save DB and configs
     volumes:
       - /etc/wgforge:/etc/wgforge
       - /var/lib/wgforge:/var/lib/wgforge

@@ -61,7 +61,8 @@ COPY . .
 
 RUN cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=MinSizeRel \
-    -DCMAKE_INSTALL_PREFIX=/usr
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DDOCKER_BUILD=ON
 
 RUN cmake --build build --target wgforge-server -j$(nproc)
 

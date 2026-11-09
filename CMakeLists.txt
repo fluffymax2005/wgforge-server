@@ -8,10 +8,15 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(LIBS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libs)
 
+option(DOCKER_BUILD "Building inside Docker" OFF)
 
 add_subdirectory(core)
 add_subdirectory(contracts)
-add_subdirectory(cli)
+
+# Exclude generating for wgforge-cli
+if (NOT DOCKER_BUILD)
+    add_subdirectory(cli)
+endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_subdirectory(daemon)

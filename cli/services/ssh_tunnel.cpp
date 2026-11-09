@@ -142,22 +142,22 @@ void SshTunnel::stop() {
 }
 
 void SshTunnel::authenticate(std::ostream& os) {
-  // 1. Authorization attempt by explicit key
   bool success = false;
+
+  // 1. Authorization attempt by explicit key
   if (!key_path_.empty()) {
 	try {
-	  Spinner::run(os, "Trying to authorize with explicit key\n", [this, &os, &success] {
+	  Spinner::run(os, "Trying to authorize with explicit key", [this, &success] {
 		ssh_key key = nullptr;
-		if (ssh_pki_import_privkey_file(key_path_.c_str(), nullptr, nullptr, nullptr, &key) ==
-		    SSH_OK) {
+		if (ssh_pki_import_privkey_file(key_path_.c_str(), "", nullptr, nullptr, &key) == SSH_OK) {
 		  int rc = ssh_userauth_publickey(session_, nullptr, key);
 		  ssh_key_free(key);
 		  if (rc == SSH_AUTH_SUCCESS) {
 			success = true;
 			return;
 		  }
-		  throw std::runtime_error("");
 		}
+		throw std::runtime_error("");
 	  });
 	} catch (...) {
 	}
@@ -166,22 +166,7 @@ void SshTunnel::authenticate(std::ostream& os) {
   if (success)
 	return;
 
-  // 2. Variant A: Automatic authorization (ssh-agent + id_rsa / id_ed25519)
-  try {
-	Spinner::run(os, "Trying to authorize via SSH agent", [this, &success] {
-	  if (ssh_userauth_publickey_auto(session_, nullptr, nullptr) == SSH_AUTH_SUCCESS) {
-		success = true;
-		return;
-	  }
-	  throw std::runtime_error("");
-	});
-  } catch (...) {
-  }
-
-  if (success)
-	return;
-
-  // 3. Variant B: Password authorization
+  // 2. Variant A: Password authorization
   if (!password_.empty()) {
 	try {
 	  Spinner::run(os, "Attempting to authorize with password", [this, &success] {
@@ -189,9 +174,25 @@ void SshTunnel::authenticate(std::ostream& os) {
 		  success = true;
 		  return;
 		}
+		throw std::runtime_error("");
 	  });
 	} catch (...) {
 	}
+  }
+
+  if (success)
+	return;
+
+  // 3. Variant B: Automatic authorization (ssh-agent + id_rsa / id_ed25519)
+  try {
+	Spinner::run(os, "Trying to authorize via SSH agent", [this, &success] {
+	  if (ssh_userauth_publickey_auto(session_, nullptr, "") == SSH_AUTH_SUCCESS) {
+		success = true;
+		return;
+	  }
+	  throw std::runtime_error("");
+	});
+  } catch (...) {
   }
 
   if (!success)
