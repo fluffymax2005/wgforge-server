@@ -22,7 +22,9 @@
 
 #include "subnetscanner.h"
 
+#include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/poll.h>
 
 #include <algorithm>
 #include <array>
@@ -71,55 +73,7 @@ std::optional<bool> SubnetScanner::isSubnetFree(std::string_view cidr, float tim
 
   if (start_ip > end_ip)
 	return true;
-
-  // Threads to execute ICMP request
-  uint16_t num_threads = std::thread::hardware_concurrency();
-  num_threads = std::max(1, num_threads - 1);
-
-  // Threads pool
-  std::atomic<bool> network_has_host{false};
-  std::vector<std::thread> threads;
-  threads.reserve(num_threads);
-
-  // Hosts counter for threads
-  uint32_t current_ip = start_ip;
-  uint32_t total_hosts = end_ip - start_ip + 1;
-
-  // Ping range of hosts per thread
-  auto ping_range = [&](uint32_t range_start, uint32_t range_end) {
-	for (uint32_t ip = range_start; ip <= range_end && !network_has_host.load(); ip++) {
-	  // Convert IP to str
-	  in_addr addr_struct;
-	  addr_struct.s_addr = htonl(ip);
-	  char ip_str[INET_ADDRSTRLEN];
-	  inet_ntop(AF_INET, &addr_struct, ip_str, sizeof(ip_str));
-
-	  // Send ICMP request
-	  ping_host(ip, ip_str, network_has_host, timeout_seconds);
-	}
-  };
-
-  const uint32_t hosts_per_thread = total_hosts / num_threads;
-  uint32_t remaining_hosts = total_hosts % num_threads;
-
-  for (uint32_t i = 0; i < num_threads; i++) {
-	const uint32_t range_start = current_ip;
-	uint32_t range_end = current_ip + hosts_per_thread - 1;
-
-	if (i == num_threads - 1)
-	  range_end += remaining_hosts;
-	if (range_start <= range_end)
-	  threads.emplace_back(ping_range, range_start, range_end);
-
-	current_ip = range_end + 1;
-  }
-
-  std::for_each(threads.begin(), threads.end(), [](auto& t) {
-	if (t.joinable())
-	  t.join();
-  });
-
-  return !network_has_host.load();
+  return isSubnetFreeFast(start_ip, end_ip, timeout_seconds);
 }
 
 std::string SubnetScanner::findFreeSubnet(uint8_t suffix, float timeout_seconds) {
@@ -194,6 +148,88 @@ std::optional<std::string> SubnetScanner::scanSubnetClass(uint32_t range_start, 
   return std::nullopt;
 }
 
+bool SubnetScanner::isSubnetFreeFast(uint32_t start_ip, uint32_t end_ip, float timeout_seconds) {
+  // 1. The only socket to scan
+  int sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  if (sock < 0)
+	throw std::runtime_error("Failed to create socket to send ICMP Echo Reqest");
+
+  // 2. Change socket option to nonblocking
+  int flags = fcntl(sock, F_GETFL, 0);
+  fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+
+  // 3. Quickly send ICMP Echo
+  uint16_t pid_id = static_cast<uint16_t>(getpid() & 0xFFFF);
+  uint16_t seq = 0;
+
+  for (uint32_t ip = start_ip; ip <= end_ip; ++ip) {
+	sockaddr_in dest_addr{};
+	dest_addr.sin_family = AF_INET;
+	dest_addr.sin_addr.s_addr = htonl(ip);
+
+	icmphdr icmp_req{};
+	icmp_req.type = ICMP_ECHO;
+	icmp_req.code = 0;
+	icmp_req.un.echo.id = htons(pid_id);
+	icmp_req.un.echo.sequence = htons(++seq);
+	icmp_req.checksum = checksum(&icmp_req, sizeof(icmp_req));
+
+	sendto(sock, &icmp_req, sizeof(icmp_req), 0, reinterpret_cast<sockaddr*>(&dest_addr),
+	       sizeof(dest_addr));
+  }
+
+  // 4. Await response via poll() unless timeout occured
+  auto start_time = std::chrono::steady_clock::now();
+  int timeout_ms = static_cast<int>(timeout_seconds * 1000.0f);
+
+  unsigned char recv_buf[1024];
+  pollfd pfd{sock, POLLIN, 0};
+
+  while (true) {
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+	                   std::chrono::steady_clock::now() - start_time)
+	                   .count();
+
+	int remaining = timeout_ms - static_cast<int>(elapsed);
+	if (remaining <= 0) {
+	  break;  // timeout
+	}
+
+	int ret = poll(&pfd, 1, remaining);
+	if (ret <= 0) {
+	  break;  // timeout or poll error
+	}
+
+	if (pfd.revents & POLLIN) {
+	  sockaddr_in from{};
+	  socklen_t from_len = sizeof(from);
+	  ssize_t len = recvfrom(sock, recv_buf, sizeof(recv_buf), 0,
+	                         reinterpret_cast<sockaddr*>(&from), &from_len);
+
+	  if (len >= static_cast<ssize_t>(sizeof(iphdr) + sizeof(icmphdr))) {
+		// Parse SOCK_RAW IP header
+		iphdr* ip = reinterpret_cast<iphdr*>(recv_buf);
+		int ip_len = ip->ihl * 4;
+
+		if (len >= ip_len + static_cast<int>(sizeof(icmphdr))) {
+		  icmphdr* icmp = reinterpret_cast<icmphdr*>(recv_buf + ip_len);
+
+		  if (icmp->type == ICMP_ECHOREPLY && ntohs(icmp->un.echo.id) == pid_id) {
+			uint32_t reply_ip = ntohl(from.sin_addr.s_addr);
+			if (reply_ip >= start_ip && reply_ip <= end_ip) {
+			  close(sock);
+			  return false;  // subnet is not free
+			}
+		  }
+		}
+	  }
+	}
+  }
+
+  close(sock);
+  return true;  // subnet is free
+}
+
 unsigned short SubnetScanner::checksum(void* b, int len) {
   unsigned short* buf = static_cast<unsigned short*>(b);
   unsigned int sum = 0;
@@ -209,17 +245,11 @@ unsigned short SubnetScanner::checksum(void* b, int len) {
   return result;
 }
 
-void SubnetScanner::ping_host(int id, std::string_view ipv4_address,
-                              std::atomic<bool>& network_has_host, float timeout_seconds) {
-  if (network_has_host.load()) {
-	return;
-  }
-
+bool SubnetScanner::ping_host(int id, std::string_view ipv4_address, float timeout_seconds) {
   // Create UDP ICMP socket
   int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
-  if (sock < 0) {
-	return;
-  }
+  if (sock < 0)
+	throw std::runtime_error("Failed to create socket to ping host");
 
   // Fill sockaddr with ipv4 address
   sockaddr_in dest_addr{};
@@ -238,7 +268,7 @@ void SubnetScanner::ping_host(int id, std::string_view ipv4_address,
                           reinterpret_cast<sockaddr*>(&dest_addr), sizeof(dest_addr));
   if (bytes_sent <= 0) {
 	close(sock);
-	return;
+	throw std::runtime_error("Failed to send ICMP request");
   }
 
   // Get response with timeout
@@ -257,17 +287,15 @@ void SubnetScanner::ping_host(int id, std::string_view ipv4_address,
 
   if (bytes_recv < 0) {
 	close(sock);
-	return;
+	return false;
   }
+
 
   // Parse response
   iphdr* ip_hdr = reinterpret_cast<iphdr*>(recv_buffer);
   int ip_header_len = ip_hdr->ihl * 4;
   icmphdr* icmp_reply = reinterpret_cast<icmphdr*>(recv_buffer + ip_header_len);
 
-  if (icmp_reply->type == ICMP_ECHOREPLY) {
-	network_has_host.store(true);
-  }
-
   close(sock);
+  return icmp_reply->type == ICMP_ECHOREPLY;
 }

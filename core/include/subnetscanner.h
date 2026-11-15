@@ -37,6 +37,7 @@
 
 /**
  * @brief Provides utilities for scanning networks. Currently supports **only** IPv4.
+ * @warning Requires root priviliges.
  */
 class SubnetScanner {
 public:
@@ -77,18 +78,32 @@ private:
    * @param b body memory buffer
    * @param len length of buffer
    * @retval calculated checksum
+   *
    */
   static unsigned short checksum(void* b, int len);
+
 
   /**
    * @brief Send ICMP echo request.
    * @param id random identificator for request
    * @param ipv4_address address to send request to
-   * @param network_has_host bool flag which is set to true if host replied
    * @param timeout_seconds time for timeout
+   * @retval true if target host returned ICMP Echo Reply
+   * @throw std::runtime_error due to socket management error occured
+   * @warning Marked as DEPRECATED
    */
-  static void ping_host(int id, std::string_view ipv4_address, std::atomic<bool>& network_has_host,
-                        float timeout_seconds = 1);
+  [[deprecated("Method is not used. Use SubnetScanner::isSubnetFreeFast instead")]]
+  static bool ping_host(int id, std::string_view ipv4_address, float timeout_seconds = 1);
+
+  /**
+   * @brief Fastly scan ip addresses in range [start_ip; end_ip] (binary representation)
+   * @param start_ip initial ip address
+   * @param end_ip last ip address:
+   * @param timeout_seconds timeout (secs)
+   * @retval true if no host replied ICMP Echo Reply
+   * @throw std::runtime_error due to socket management error occured
+   */
+  static bool isSubnetFreeFast(uint32_t start_ip, uint32_t end_ip, float timeout_seconds);
 
   /**
    * @brief Scan A, B and C private network classes
