@@ -279,7 +279,7 @@ HTTP Server API is written in OpenAPI 3.1.0 by path ```docs/wgforge-server.yaml`
 
 # 🔊 Contributing
 
-Found any issues or want to help to distribute package into other Linux distros? Create [issue](https://github.com/fluffymax2005/libwgcpp/issues/new) and tell about with template:
+Found any issues or want to help to distribute package into other Linux distros? Create [issue](https://github.com/fluffymax2005/wgforge-server/issues/new) and tell about with template:
 - Brief: description of vulnerability or suggestions for improvement
 - Touches file(s): where you found it
 - Explanation: your explanation
