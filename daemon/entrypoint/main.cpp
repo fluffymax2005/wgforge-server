@@ -57,13 +57,15 @@ int main(int argc, char* argv[]) {
 
   const std::string iface_name = argv[1];
 
+  std::shared_ptr<WgForge::ILogger> spd_logger;
+
   try {
 	// Filepaths
 	const std::string conf_path = std::format("/etc/wgforge/{}.conf", iface_name);
 	const std::string db_path = std::format("/var/lib/wgforge/{}.sqlite", iface_name);
 
 	// Logger
-	auto spd_logger = std::make_shared<WgForge::SpdLogger>();
+	spd_logger = std::make_shared<WgForge::SpdLogger>();
 	spd_logger->info("Starting wgforge-server initialization...");
 
 	// Configuration files (.conf)
@@ -177,7 +179,10 @@ int main(int argc, char* argv[]) {
 	server.run();
 
   } catch (const std::exception& e) {
-	std::cerr << "[FATAL ERROR] " << e.what() << std::endl;
+	if (spd_logger)
+	  spd_logger->critical(e.what());
+	else
+	  std::cerr << "[FATAL ERROR] " << e.what() << std::endl;
 	return 1;
   }
 

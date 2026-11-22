@@ -36,6 +36,7 @@ public:
   virtual void info(const std::string& msg) override;
   virtual void error(const std::string& msg) override;
   virtual void warn(const std::string& msg) override;
+  virtual void critical(const std::string& msg) override;
 
 private:
   std::shared_ptr<spdlog::logger> logger_;

@@ -46,4 +46,8 @@ void SpdLogger::warn(const std::string& msg) {
   logger_->warn(msg);
 }
 
+void SpdLogger::critical(const std::string& msg) {
+  logger_->critical(msg);
+}
+
 }  // namespace WgForge
