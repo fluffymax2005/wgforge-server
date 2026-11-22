@@ -23,6 +23,10 @@
 #ifndef WGFORGE_DEFINES_HPP
 #define WGFORGE_DEFINES_HPP
 
+#ifndef WGFORGE_SERVER_STRING
+  #define WGFORGE_SERVER_STRING "wgforge-server"
+#endif
+
 #include <libeconf.h>
 #include <wgforge.h>
 
@@ -37,8 +41,11 @@ namespace beast = boost::beast;
 namespace http = boost::beast::http;
 namespace json = boost::json;
 
-using Request = const http::request<http::string_body>&;
-using Response = http::response<http::string_body>&;
+using Request = http::request<http::string_body>;
+using RequestConstRef = const Request&;
+
+using Response = http::response<http::string_body>;
+using ResponseRef = Response&;
 
 }  // namespace WgForge
 

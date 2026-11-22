@@ -33,7 +33,7 @@ class IExceptionHandle {
 public:
   virtual ~IExceptionHandle() = default;
 
-  virtual void handleException(std::exception_ptr ep, Request req, Response& res) = 0;
+  virtual void handleException(std::exception_ptr ep, RequestConstRef req, ResponseRef res) = 0;
 };
 
 }  // namespace WgForge

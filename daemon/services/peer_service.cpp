@@ -131,14 +131,15 @@ std::future<CreatePeerResponse> PeerService::createPeerAsync(const CreatePeerReq
 
 	    Peer peer;
 	    WgPrivateKey private_key;
-	    WgPublicKey public_key(private_key.toB64String());
+	    WgPublicKey public_key(private_key);
 
 	    while (iface_->hasPeerWithPublicKey(public_key)) {
 	      private_key = WgPrivateKey();
-	      public_key = WgPublicKey(private_key.toB64String());
+	      public_key = WgPublicKey(private_key);
 	    }
 
 	    peer.public_key = public_key.toB64String();
+	    res.public_key = public_key.toB64String();
 
 	    logger_->info(
 	        std::format("Started creating peer with public key: {}", public_key.toB64String()));
@@ -198,7 +199,6 @@ std::future<CreatePeerResponse> PeerService::createPeerAsync(const CreatePeerReq
 
 	    t.commit();
 
-	    res.public_key = public_key.toB64String();
 	    res.private_key = private_key.toB64String();
 	    res.preshared_key = copy.generate_preshared_key ? *peer.preshared_key : "";
 	    res.tunnel_address = peer.tunnel_address;

@@ -39,15 +39,16 @@ public:
                                std::shared_ptr<ConfigManager> config_mgr,
                                std::shared_ptr<IInterfaceService> iface_service);
 
-  void getInfo(Request req, Response res);
-  void updateConfig(Request req, Response res);
+  void getInfo(RequestConstRef req, ResponseRef res);
+  void updateConfig(RequestConstRef req, ResponseRef res);
 
 private:
   std::shared_ptr<ILogger> logger_;
   std::shared_ptr<ConfigManager> config_mgr_;
   std::shared_ptr<IInterfaceService> iface_service_;
 
-  virtual void handleException(std::exception_ptr ep, Request req, Response& res) override;
+  virtual void handleException(std::exception_ptr ep, RequestConstRef req,
+                               ResponseRef res) override;
 };
 
 }  // namespace WgForge

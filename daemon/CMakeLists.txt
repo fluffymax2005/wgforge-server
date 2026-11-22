@@ -91,6 +91,11 @@ target_link_libraries(${PROJECT_NAME}
         spdlog
 )
 
+target_compile_definitions(${WGFORGE_SERVER_NAME}
+    PRIVATE
+    WGFORGE_SERVER_STRING="${WGFORGE_SERVER_NAME}"
+)
+
 install(TARGETS ${WGFORGE_SERVER_NAME}
     RUNTIME DESTINATION bin
     COMPONENT wgforge-server

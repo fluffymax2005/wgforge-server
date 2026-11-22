@@ -41,7 +41,7 @@ WireguardInterfaceController::WireguardInterfaceController(
   iface_service_ = std::move(iface_service);
 }
 
-void WireguardInterfaceController::getInfo(Request req, Response res) {
+void WireguardInterfaceController::getInfo(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::get) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only GET";
@@ -49,9 +49,13 @@ void WireguardInterfaceController::getInfo(Request req, Response res) {
 	return;
   }
 
+  logger_->info("Fetching Wireguard interface config");
+
   std::exception_ptr ep;
   try {
 	auto info = iface_service_->getInfo();
+
+	logger_->info("Fetching interface config succeeded");
 
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
@@ -65,7 +69,7 @@ void WireguardInterfaceController::getInfo(Request req, Response res) {
   res.prepare_payload();
 }
 
-void WireguardInterfaceController::updateConfig(Request req, Response res) {
+void WireguardInterfaceController::updateConfig(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::patch) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "ONLY PATCH";
@@ -73,10 +77,14 @@ void WireguardInterfaceController::updateConfig(Request req, Response res) {
 	return;
   }
 
+  logger_->warn("Wireguard config update requested");
+
   std::exception_ptr ep;
   try {
 	auto j = json::parse(req.body()).as_object();
 	iface_service_->updateConfig(j);
+
+	logger_->warn("Wireguard config update succeeded");
 
 	res.result(http::status::no_content);
   } catch (const std::exception& e) {
@@ -88,8 +96,8 @@ void WireguardInterfaceController::updateConfig(Request req, Response res) {
   res.prepare_payload();
 }
 
-void WireguardInterfaceController::handleException(std::exception_ptr ep, Request req,
-                                                   Response& res) {
+void WireguardInterfaceController::handleException(std::exception_ptr ep, RequestConstRef req,
+                                                   ResponseRef res) {
   try {
 	if (ep)
 	  std::rethrow_exception(ep);

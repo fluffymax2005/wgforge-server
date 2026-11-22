@@ -41,7 +41,7 @@ PeerController::PeerController(std::shared_ptr<IPeerServiceAsync> peer_service,
   logger_ = std::move(logger);
 }
 
-void PeerController::getPeer(Request req, Response res) {
+void PeerController::getPeer(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::get) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only GET";
@@ -66,13 +66,17 @@ void PeerController::getPeer(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
 	std::string public_key = boost::urls::decode(key_it->value).value();
+	logger_->warn(std::format("Getting peer's record. Public key: {}", public_key));
 	if (!WgKey::validateB64StringKey(public_key)) {
+	  logger_->error(std::format("Invalid public key \"{}\"", public_key));
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
 	}
 
 	auto peer = peer_service_->getPeerByPublicKey(public_key).get();
 	if (!peer.has_value())
 	  throw EndpointNotFound("Peer not found");
+
+	logger_->info(std::format("Got peer's record. Public key: {}", public_key));
 
 
 	res.result(http::status::ok);
@@ -87,7 +91,7 @@ void PeerController::getPeer(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::getAllPeers(Request req, Response res) {
+void PeerController::getAllPeers(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::get) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only GET";
@@ -95,16 +99,22 @@ void PeerController::getAllPeers(Request req, Response res) {
 	return;
   }
 
+  logger_->warn("Fetching all peers' records");
+
   std::exception_ptr ep;
   try {
 	json::object j;
 	json::array arr;
 
 	auto peers_opt = peer_service_->getAllAsync().get();
-	if (!peers_opt.has_value())
+	if (!peers_opt.has_value()) {
+	  logger_->error("No peers presented for provided configuration");
 	  throw EndpointNotFound("Peers not presented");
+	}
 
 	j["peers"] = json::value_from(std::move(peers_opt.value()));
+
+	logger_->info("Fetching all peers' records succeeded");
 
 	res.result(http::status::ok);
 	res.set(http::field::content_type, "application/json");
@@ -118,7 +128,7 @@ void PeerController::getAllPeers(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::createPeer(Request req, Response res) {
+void PeerController::createPeer(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::post) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only POST";
@@ -126,10 +136,14 @@ void PeerController::createPeer(Request req, Response res) {
 	return;
   }
 
+  logger_->warn("Creating peer requested");
+
   std::exception_ptr ep;
   try {
 	auto j = json::parse(req.body()).as_object();
 	auto record = peer_service_->createPeerAsync(j).get();
+
+	logger_->info(std::format("Created peer. Public key: {}", record.public_key));
 
 	res.result(http::status::created);
 	res.set(http::field::content_type, "application/json");
@@ -143,7 +157,7 @@ void PeerController::createPeer(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::deletePeer(Request req, Response res) {
+void PeerController::deletePeer(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::delete_) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only DELETE";
@@ -168,13 +182,20 @@ void PeerController::deletePeer(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
 	std::string public_key = boost::urls::decode(key_it->value).value();
-	if (!WgKey::validateB64StringKey(public_key))
+	logger_->warn(std::format("Soft deleting peer requested. Public key: {}", public_key));
+	if (!WgKey::validateB64StringKey(public_key)) {
+	  logger_->error(std::format("Invalid peer key. Public key: {}", public_key));
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
+	}
 
 	auto peer = peer_service_->getPeerByPublicKey(public_key).get();
-	if (!peer.has_value())
+	if (!peer.has_value()) {
+	  logger_->error(std::format("Peer not presented. Public key: {}", public_key));
 	  throw EndpointNotFound("Peer not found");
+	}
 	peer_service_->softDeleteAsync(peer.value().id);
+
+	logger_->info(std::format("Soft deleted peer. Public key: {}", public_key));
 
 	res.result(http::status::no_content);
   } catch (const std::exception& e) {
@@ -186,7 +207,7 @@ void PeerController::deletePeer(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::updatePeer(Request req, Response res) {
+void PeerController::updatePeer(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::patch) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only PATCH";
@@ -211,12 +232,16 @@ void PeerController::updatePeer(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
 	std::string public_key = boost::urls::decode(key_it->value).value();
-	if (!WgKey::validateB64StringKey(public_key))
+	logger_->warn(std::format("Peer update requested. Public key: {}", public_key));
+	if (!WgKey::validateB64StringKey(public_key)) {
+	  logger_->error(std::format("Invalid public key. Public key: {}", public_key));
 	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
+	}
 
 	auto j = json::parse(req.body()).as_object();
 	peer_service_->updateAsync(j).get();
 
+	logger_->info(std::format("Peer updated. Public key: {}", public_key));
 
 	res.result(http::status::ok);
   } catch (const std::exception& e) {
@@ -228,7 +253,7 @@ void PeerController::updatePeer(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::rotatePeerKey(Request req, Response res) {
+void PeerController::rotatePeerKey(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::patch) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only PATCH";
@@ -251,11 +276,19 @@ void PeerController::rotatePeerKey(Request req, Response res) {
 	auto old_key_it = params.find("oldPublicKey");
 	if (old_key_it == params.end())
 	  throw EndpointInvalidArgument("\"oldPublicKey\" not provided");
+
 	std::string old_key = boost::urls::decode(old_key_it->value).value();
+	logger_->warn(std::format("Rotating peer's key requested. Public key: {}", old_key));
+	if (!WgPublicKey::validateB64StringKey(old_key)) {
+	  logger_->error(std::format("Invalid old public key. Public key: {}", old_key));
+	  throw EndpointInvalidArgument("Invalid \"oldPublicKey\"");
+	}
 
 	auto result =
 	    peer_service_->rotatePublicKeyAsync(RotatePeerPublicKeyRequest("", old_key)).get();
 
+	logger_->info(
+	    std::format("Rotated old public key: {}. New public key: {}", old_key, result.public_key));
 
 	res.body() = json::serialize(json::value_from(result));
 	res.set(http::field::content_type, "application/json");
@@ -269,7 +302,7 @@ void PeerController::rotatePeerKey(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::getPeersConfig(Request req, Response res) {
+void PeerController::getPeersConfig(RequestConstRef req, ResponseRef res) {
   if (req.method() != http::verb::get) {
 	res.result(http::status::method_not_allowed);
 	res.body() = "Only GET";
@@ -294,6 +327,12 @@ void PeerController::getPeersConfig(Request req, Response res) {
 	  throw EndpointInvalidArgument("\"publicKey\" not provided");
 
 	std::string public_key = boost::urls::decode(key_it->value).value();
+	logger_->info(std::format("Fetching peer's config. Public key: {}", public_key));
+	if (!WgPublicKey::validateB64StringKey(public_key)) {
+	  logger_->error(std::format("Invalid public key. Public key: {}", public_key));
+	  throw EndpointInvalidArgument("Invalid \"publicKey\"");
+	}
+
 
 	std::string public_endpoint;
 	auto endp_it = params.find("publicEndpoint");
@@ -304,6 +343,8 @@ void PeerController::getPeersConfig(Request req, Response res) {
 	json::object j;
 	j["config"] =
 	    peer_service_->getPeerConfigAsync(PeerConfigRequest(public_key, public_endpoint)).get();
+	logger_->info(std::format("Configuring peer's config succeeded. Public key: {}", public_key));
+
 	res.body() = json::serialize(j);
 	res.set(http::field::content_type, "application/json");
 	res.result(http::status::ok);
@@ -316,7 +357,7 @@ void PeerController::getPeersConfig(Request req, Response res) {
   res.prepare_payload();
 }
 
-void PeerController::handleException(std::exception_ptr ep, Request req, Response& res) {
+void PeerController::handleException(std::exception_ptr ep, RequestConstRef req, ResponseRef res) {
   try {
 	if (ep)
 	  std::rethrow_exception(ep);

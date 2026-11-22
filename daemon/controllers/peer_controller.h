@@ -36,20 +36,21 @@ class PeerController : IExceptionHandle {
 public:
   PeerController(std::shared_ptr<IPeerServiceAsync> peer_service, std::shared_ptr<ILogger> logger);
 
-  void getPeer(Request req, Response res);
-  void getAllPeers(Request req, Response res);
-  void createPeer(Request req, Response res);
-  void updatePeer(Request req, Response res);
-  void deletePeer(Request req, Response res);
-  void rotatePeerKey(Request req, Response res);
-  void getPeersConfig(Request req, Response res);
+  void getPeer(RequestConstRef req, ResponseRef res);
+  void getAllPeers(RequestConstRef req, ResponseRef res);
+  void createPeer(RequestConstRef req, ResponseRef res);
+  void updatePeer(RequestConstRef req, ResponseRef res);
+  void deletePeer(RequestConstRef req, ResponseRef res);
+  void rotatePeerKey(RequestConstRef req, ResponseRef res);
+  void getPeersConfig(RequestConstRef req, ResponseRef res);
 
 
 private:
   std::shared_ptr<IPeerServiceAsync> peer_service_;
   std::shared_ptr<ILogger> logger_;
 
-  virtual void handleException(std::exception_ptr ep, Request req, Response& res) override;
+  virtual void handleException(std::exception_ptr ep, RequestConstRef req,
+                               ResponseRef res) override;
 };
 
 }  // namespace WgForge

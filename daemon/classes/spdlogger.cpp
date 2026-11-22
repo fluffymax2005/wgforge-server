@@ -24,11 +24,14 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "defines.h"
+
 namespace WgForge {
 
 SpdLogger::SpdLogger() {
   logger_ = spdlog::stdout_color_mt("wgforge-server");
-  logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+  logger_->set_pattern(
+      std::format("[%Y-%m-%d %H:%M:%S.%e] {}[%t] [%^%l%$]: %v", WGFORGE_SERVER_STRING));
 }
 
 void SpdLogger::info(const std::string& msg) {

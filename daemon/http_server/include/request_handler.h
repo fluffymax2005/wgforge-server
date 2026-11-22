@@ -55,8 +55,7 @@ public:
   RequestHandler(const RequestHandler&) = delete;
   RequestHandler& operator=(const RequestHandler&) = delete;
 
-  using HandlerFunc = std::function<void(const http::request<beast::http::string_body>&,
-                                         http::response<beast::http::string_body>&)>;
+  using HandlerFunc = std::function<void(RequestConstRef, ResponseRef)>;
 
   RequestHandler() = default;
 
@@ -78,7 +77,7 @@ private:
 template<typename Controller, typename Method>
 void RequestHandler::bind_route(http::verb method, const std::string& path,
                                 std::shared_ptr<Controller> controller, Method method_ptr) {
-  add_route(method, path, [controller, method_ptr](Request req, Response res) {
+  add_route(method, path, [controller, method_ptr](RequestConstRef req, ResponseRef res) {
 	(controller.get()->*method_ptr)(req, res);
   });
 }
