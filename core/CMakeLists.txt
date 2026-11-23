@@ -45,6 +45,7 @@ file(MAKE_DIRECTORY ${ODB_GENERATED_SOURCES_DIR})
 set(ENTITIES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/entities/allowedip.hxx
     ${CMAKE_CURRENT_SOURCE_DIR}/entities/peer.hxx
+    ${CMAKE_CURRENT_SOURCE_DIR}/entities/meta.hxx
 )
 
 set(ODB_GENERATED_SOURCES "")

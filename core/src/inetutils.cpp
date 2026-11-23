@@ -26,6 +26,7 @@
 #include <netlink/route/addr.h>
 #include <netlink/route/link.h>
 
+#include <cstring>
 #include <format>
 #include <unordered_set>
 
@@ -38,12 +39,10 @@ void InetUtils::assignIpAddress(const InterfaceConfig& config) {
 	throw std::invalid_argument("Invalid interface address CIDR provided");
 
   in_addr ipv4_addr;
-  char ip_text_addr[sizeof(config.addr) - 5]{};  // not include [], :, port number
+  std::array<char, INET6_ADDRSTRLEN> ip_text_addr{};  // not include [], :, port number
+  std::strncpy(ip_text_addr.data(), addr_view.data(), slash_pos);
 
-  std::strncpy(ip_text_addr, config.addr,
-               slash_pos);  // copy address
-
-  if (inet_pton(AF_INET, ip_text_addr, &ipv4_addr) != 1)
+  if (inet_pton(AF_INET, ip_text_addr.data(), &ipv4_addr) != 1)
 	throw std::invalid_argument("Invalid interface IP address provided");
 
   nl_sock* sock = nl_socket_alloc();
@@ -63,7 +62,7 @@ void InetUtils::assignIpAddress(const InterfaceConfig& config) {
 	throw std::runtime_error("Failed to allocate rtnl link cache");
   }
 
-  rtnl_link* link = rtnl_link_get_by_name(cache, config.name);
+  rtnl_link* link = rtnl_link_get_by_name(cache, config.name.c_str());
   if (link == nullptr) {
 	nl_cache_free(cache);
 	nl_close(sock);

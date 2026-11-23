@@ -33,6 +33,8 @@ namespace WgForge {
 struct ServerConfig {
   char addr[INET_ADDRSTRLEN];  ///< Listening address
   in_port_t listenPort;        ///< Listen port
+  bool
+      allow_subnet_migration;  ///< Allow subnet migration if configuration differs from database meta information
 };
 
 

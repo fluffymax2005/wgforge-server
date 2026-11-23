@@ -29,6 +29,7 @@
 #include <format>
 #include <iostream>
 #include <memory>
+#include <meta-odb.hxx>
 #include <odb/schema-catalog.hxx>
 #include <odb/sqlite/database.hxx>
 #include <string>
@@ -79,27 +80,8 @@ int main(int argc, char* argv[]) {
 	}
 	WgForge::ConfigErrorHandler::throwIfError(cfg_rc);
 
-	// ODB (SQLite)
-	spd_logger->info("Opening SQLite database: " + db_path);
-	auto db_context = std::make_shared<odb::sqlite::database>(
-	    db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-	if (odb::schema_catalog::exists(*db_context)) {
-	  odb::transaction t(db_context->begin());
-	  try {
-		odb::schema_catalog::create_schema(*db_context, "", false);
-	  } catch (...) {
-	  }
-	  t.commit();
-	}
-
-	// Wireguard iface
-	spd_logger->info("Binding Wireguard interface: " + iface_name);
-	auto wg_interface = std::make_shared<WgForge::WgInterface>(iface_name.c_str());
-
-	const auto iface_cfg = WgForge::get_iface_config(*config_manager, iface_name.c_str());
-	WgForge::setup_wginterface(*wg_interface, *db_context, iface_cfg);
-
 	// IConfiguration
+	const auto iface_cfg = WgForge::get_iface_config(*config_manager, iface_name.c_str());
 	auto configuration = std::make_shared<WgForge::Configuration>();
 	configuration->getSection("Interface")["Address"] = iface_cfg.addr;
 	configuration->getSection("Interface")["ListenPort"] = iface_cfg.listenPort;
@@ -112,9 +94,62 @@ int main(int argc, char* argv[]) {
 	const auto srv_cfg = WgForge::get_server_config(*config_manager);
 	configuration->getSection("Server")["Address"] = srv_cfg.addr;
 	configuration->getSection("Server")["ListenPort"] = srv_cfg.listenPort;
+	configuration->getSection("Server")["AllowSubnetMigration"] = srv_cfg.allow_subnet_migration;
 
 	const auto wg_config = WgForge::get_wireguard_config(*config_manager);
 	configuration->getSection("Wireguard")["PublicEndpoint"] = wg_config.public_endpoint;
+
+	auto create_db_context = [&]() -> std::shared_ptr<odb::sqlite::database> {
+	  auto context = std::make_shared<odb::sqlite::database>(
+	      db_path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+	  odb::transaction t(context->begin());
+	  if (odb::schema_catalog::exists(*context)) {
+		try {
+		  odb::schema_catalog::create_schema(*context, "", false);
+		} catch (...) {
+		}
+	  }
+
+	  auto res = context->query<WgForge::Meta>();
+	  if (res.empty()) {
+		WgForge::Meta meta_inf{.iface_address = iface_cfg.addr};
+		context->persist(meta_inf);
+	  }
+
+	  t.commit();
+	  return context;
+	};
+
+	// ODB (SQLite)
+	spd_logger->info("Opening SQLite database: " + db_path);
+	auto db_context = create_db_context();
+	if (!db_context)
+	  throw std::runtime_error("Failed to open database connection");
+
+	spd_logger->info("Validating configuration and database containment");
+	auto need_migration = WgForge::validateDatabaseSchemaUseCase(*config_manager, *db_context);
+	if (need_migration) {
+	  spd_logger->warn(
+	      "Configuration and database differs from each other. Creating fresh database");
+
+	  // Close previous connection
+	  db_context.reset();
+
+	  auto backup_path = WgForge::migrateDatabase(iface_name);
+	  spd_logger->info(
+	      std::format("Migration succeeded. Database was moved by path \"{}\"", backup_path));
+
+
+	  db_context = create_db_context();
+	  if (!db_context)
+		throw std::runtime_error("Failed to create fresh database");
+	}
+
+	// Wireguard iface
+	spd_logger->info("Binding Wireguard interface: " + iface_name);
+	auto wg_interface = std::make_shared<WgForge::WgInterface>(iface_name.c_str());
+
+	WgForge::setup_wginterface(*wg_interface, *db_context, iface_cfg);
 
 	// Dependency Injection
 	spd_logger->info("Building Dependency Injection Graph...");
@@ -177,8 +212,9 @@ int main(int argc, char* argv[]) {
 
 	spd_logger->info("Server successfully started and ready to accept connections!");
 	server.run();
+  }
 
-  } catch (const std::exception& e) {
+  catch (const std::exception& e) {
 	if (spd_logger)
 	  spd_logger->critical(e.what());
 	else

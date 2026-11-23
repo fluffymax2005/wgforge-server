@@ -47,7 +47,9 @@
 /**
  * @brief Thread safety type for libwgcpp. Default one is SingleThreaded.
  */
-#define __THREAD_SAFETY__ SingleThreaded
+#ifndef WGFORGE_THREAD_SAFETY
+  #define WGFORGE_THREAD_SAFETY SingleThreaded
+#endif
 
 #ifdef WGFORGE_CLI_WINDOWS
   #define ENDLINE "\r\n"
@@ -85,14 +87,14 @@ namespace WgForge {
 
 // Typedefs
 
-using WgInterface = WgInterface<__THREAD_SAFETY__>;
-using WgPeer = WgPeer<__THREAD_SAFETY__>;
-using WgKey = WgKey<__THREAD_SAFETY__>;
-using WgPrivateKey = WgPrivateKey<__THREAD_SAFETY__>;
-using WgPublicKey = WgPublicKey<__THREAD_SAFETY__>;
-using WgPresharedKey = WgPresharedKey<__THREAD_SAFETY__>;
-using WgAllowedIP = WgAllowedIP<__THREAD_SAFETY__>;
-using WgEndpoint = WgEndpoint<__THREAD_SAFETY__>;
+using WgInterface = WgInterface<WGFORGE_THREAD_SAFETY>;
+using WgPeer = WgPeer<WGFORGE_THREAD_SAFETY>;
+using WgKey = WgKey<WGFORGE_THREAD_SAFETY>;
+using WgPrivateKey = WgPrivateKey<WGFORGE_THREAD_SAFETY>;
+using WgPublicKey = WgPublicKey<WGFORGE_THREAD_SAFETY>;
+using WgPresharedKey = WgPresharedKey<WGFORGE_THREAD_SAFETY>;
+using WgAllowedIP = WgAllowedIP<WGFORGE_THREAD_SAFETY>;
+using WgEndpoint = WgEndpoint<WGFORGE_THREAD_SAFETY>;
 
 }  // namespace WgForge
 

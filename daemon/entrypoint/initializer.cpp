@@ -36,14 +36,13 @@
 #include <config_write_register.hpp>
 #include <filesystem>
 #include <format>
+#include <fstream>
+#include <meta-odb.hxx>
 #include <odb/query.hxx>
 #include <peer-odb.hxx>
 #include <unordered_set>
 
 namespace WgForge {
-
-
-
 
 void setup_wginterface(WgInterface& iface, odb::database& context, const InterfaceConfig& config) {
   if (config.checkSubnet && !SubnetScanner::isSubnetFree(config.addr))
@@ -174,6 +173,11 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	if ((rc = cfg.write<int>("Server", "ListenPort", 51819)))
 	  return nullptr;
 
+	// [Server]
+	// AllowSubnetMigration=false
+	if ((rc = cfg.write<bool>("Server", "AllowSubnetMigration", false)))
+	  return nullptr;
+
 	// [Wireguard]
 	// PublicEndpoint=<public_endpoint_of_wireguard_server>
 	// By default <public_ip>:<wireguard_listen_port> by default
@@ -208,11 +212,11 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
   return config;
 }  // namespace WgForge
 
-InterfaceConfig get_iface_config(const ConfigManager& config, const char* name) {
+InterfaceConfig get_iface_config(const ConfigManager& config, const std::string& name) {
   InterfaceConfig ifaceCfg;
 
   // Extract iface name from config filepath
-  std::strncpy(ifaceCfg.name, name, sizeof(ifaceCfg.name));
+  ifaceCfg.name = name;
 
   // ListenPort
   ConfigReadRegister::ReadReturnCode rc;
@@ -227,7 +231,7 @@ InterfaceConfig get_iface_config(const ConfigManager& config, const char* name) 
 
   // Address
   if (auto opt = config.tryRead<std::string>("Interface", "Address", &rc))
-	std::strncpy(ifaceCfg.addr, opt->c_str(), sizeof(ifaceCfg.addr));
+	ifaceCfg.addr = *opt;
   else
 	throw std::runtime_error(ConfigErrorHandler::readToString(rc, "Interface", "Address"));
 
@@ -275,6 +279,12 @@ ServerConfig get_server_config(const ConfigManager& config) {
       srvCfg.listenPort > std::numeric_limits<decltype(ServerConfig::listenPort)>::max())
 	throw std::runtime_error("\"ListenPort\" out of range for [Server]");
 
+  if (auto opt = config.tryRead<bool>("Server", "AllowSubnetMigration", &rc))
+	srvCfg.allow_subnet_migration = opt.value();
+  else
+	throw std::runtime_error(
+	    ConfigErrorHandler::readToString(rc, "Server", "AllowSubnetMigration"));
+
   return srvCfg;
 }
 
@@ -290,6 +300,126 @@ WireguardConfig get_wireguard_config(const ConfigManager& config) {
   }
 
   return wireguardCfg;
+}
+
+bool validateDatabaseSchemaUseCase(ConfigManager& config, odb::database& context) {
+  constexpr auto ERROR_MSG = "Failed to validate database scheme and config. Reason:";
+
+  // 1. Get address from config and validate
+  auto addr_cfg_opt = config.tryRead<std::string>("Interface", "Address");
+  if (!addr_cfg_opt)
+	throw std::runtime_error(
+	    std::format("{} unable to read [Server] by key \"Address\" from config", ERROR_MSG));
+
+  auto addr_cfg = addr_cfg_opt.value();
+  if (!WgAllowedIP::validate(addr_cfg))
+	throw std::invalid_argument(
+	    std::format("{} invalid [Interface] value by key \"Address\"", ERROR_MSG));
+
+  // 2. Get address from database and validate
+  Meta meta;
+  {
+	odb::transaction t(context.begin());
+	auto res = context.query<Meta>();
+	if (res.empty())
+	  throw std::runtime_error(
+	      std::format("{} table \"Meta\" does not exists in database", ERROR_MSG));
+	meta = *res.begin();
+  }
+
+  if (!WgAllowedIP::validate(meta.iface_address))
+	throw std::invalid_argument(
+	    std::format("{} invalid interface address provided by database", ERROR_MSG));
+
+  // 3. Nothing changed and address is valid
+  if (meta.iface_address == addr_cfg)
+	return false;
+
+  // 4. Valid new iface provided
+
+  // Check whether throw critical error
+  auto allow_migration_opt = config.tryRead<bool>("Server", "AllowSubnetMigration");
+  if (!allow_migration_opt)
+	throw std::runtime_error(std::format(
+	    "{} unable to read [Server] by key \"AllowSubnetMigration\" from config", ERROR_MSG));
+
+  auto allow_migration = *allow_migration_opt;
+  // Throw critical error indicating migration is not allowed
+  if (!allow_migration)
+	throw std::runtime_error(
+	    std::format("{} Wireguard interface tunnel address is changed. Migration is requested, but "
+		            "not allowed (see [Server] by key \"AllowSubnetMigration\")",
+		            ERROR_MSG));
+  return true;
+}
+
+std::string migrateDatabase(const std::string& name) {
+  constexpr auto ERROR_MSG = "Failed to migrate database. Reason:";
+
+  // Perform migration
+  namespace fs = std::filesystem;
+  const fs::path db_dir = "/var/lib/wgforge";
+  const fs::path backup_dir = db_dir / "backup";
+  std::error_code ec;
+
+  // Check whether file to backup exists
+  if (!fs::is_directory(db_dir, ec))
+	throw std::runtime_error(
+	    std::format("{} database directory \"{}\" is not presented or it is not a directory",
+		            ERROR_MSG, db_dir.string()));
+
+  const auto db_src_path = db_dir / std::format("{}.sqlite", name);
+  if (!fs::is_regular_file(db_src_path, ec))
+	throw std::runtime_error(
+	    std::format("{} database file \"{}\" is presented. It may caused by deleting it while "
+		            "validation is performed. Restart daemon",
+		            ERROR_MSG, db_src_path.c_str()));
+
+  fs::create_directory(backup_dir, ec);
+  if (ec)
+	throw std::runtime_error(std::format("{} failed to create backup directory \"{}\". Reason: {}",
+	                                     ERROR_MSG, backup_dir.string(), ec.message()));
+
+  // Backup file
+  auto i = 0;
+  for (; i <= std::numeric_limits<decltype(i)>::max(); i++) {
+	const auto db_dst_path =
+	    backup_dir / std::format("{}-{}.sqlite.bak", name, i);  // backup filename
+	if (fs::exists(db_dst_path, ec))
+	  continue;
+
+	// Move containment
+
+	std::ifstream in(db_src_path, std::ios::binary);
+	if (!in)
+	  throw std::runtime_error(std::format("{} failed to open source file to backup \"{}\"",
+	                                       ERROR_MSG, db_src_path.c_str()));
+	std::ofstream out(db_dst_path, std::ios::binary | std::ios::trunc);
+	if (!out)
+	  throw std::runtime_error(std::format("{} failed to create target backup file \"{}\"",
+	                                       ERROR_MSG, db_dst_path.c_str()));
+
+	out << in.rdbuf();
+	if (!out || !in || in.bad())
+	  throw std::runtime_error(
+	      std::format("{} failed to move containment of source file \"{}\" to target file \"{}\" "
+		              "while backuping",
+		              ERROR_MSG, db_src_path.c_str(), db_dst_path.c_str()));
+
+	in.close();
+	out.close();
+
+	if (!fs::remove(db_src_path, ec) || ec)
+	  throw std::runtime_error(
+	      std::format("{} containment of source file \"{}\" was moved to \"{}\", but failed to "
+		              "removed source file",
+		              ERROR_MSG, db_src_path.c_str(), db_dst_path.c_str()));
+
+	return db_dst_path.string();
+  }
+
+  // No filenames available to backup
+  throw std::runtime_error(std::format("{} no available filenames for backup", ERROR_MSG));
 }
 
 static std::optional<std::string> __get_public_ip() {

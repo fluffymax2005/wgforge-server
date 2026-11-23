@@ -45,12 +45,12 @@ struct InterfaceConfig {
       iface;  ///< Interface name to read config for from /etc/wgforge/{}.conf
   std::optional<std::string> endpoint;  ///< Override interface config reading and send HTTP request
 
-  char addr[INET_ADDRSTRLEN];  ///< IPv4 address
-  WgPrivateKey private_key;    ///< Private key
-  char name[IFNAMSIZ];         ///< Name
-  in_port_t listenPort;        ///< Listen port
-  Protocol proto_type;         ///< Protocol type listening on. Reserved for future
-  bool checkSubnet;            ///< Whether daemon check subnet occupation on startup
+  std::string addr;          ///< IP address
+  WgPrivateKey private_key;  ///< Private key
+  std::string name;          ///< Name
+  in_port_t listenPort;      ///< Listen port
+  Protocol proto_type;       ///< Protocol type listening on. Reserved for future
+  bool checkSubnet;          ///< Whether daemon check subnet occupation on startup
 };
 
 inline void tag_invoke(json::value_from_tag, json::value& jv, const InterfaceConfig& config) {
@@ -68,13 +68,13 @@ inline InterfaceConfig tag_invoke(json::value_to_tag<InterfaceConfig>, const jso
   const auto& obj = jv.as_object();
   InterfaceConfig config;
 
-  auto addr = json::value_to<std::string>(obj.at("address"));
-  std::strcpy(config.addr, addr.c_str());
+  config.addr = json::value_to<std::string>(obj.at("address"));
+
 
   in6_addr buf;
-  if (inet_pton(AF_INET, config.addr, &buf) == 0)
+  if (inet_pton(AF_INET, config.addr.c_str(), &buf) == 0)
 	config.proto_type = Protocol::IPv4;
-  else if (inet_pton(AF_INET6, config.addr, &buf) == 0)
+  else if (inet_pton(AF_INET6, config.addr.c_str(), &buf) == 0)
 	config.proto_type = Protocol::IPv6;
   else
 	throw std::invalid_argument("Invalid address");
@@ -83,9 +83,7 @@ inline InterfaceConfig tag_invoke(json::value_to_tag<InterfaceConfig>, const jso
   auto private_key = json::value_to<std::string>(obj.at("privateKey"));
   config.private_key = WgPrivateKey(private_key);
 
-  auto name = json::value_to<std::string>(obj.at("ifaceName"));
-  std::strcpy(config.name, name.c_str());
-
+  config.name = json::value_to<std::string>(obj.at("ifaceName"));
   config.listenPort = json::value_to<in_port_t>(obj.at("listenPort"));
 
   if (auto val = obj.try_at("checkSubnet"))
