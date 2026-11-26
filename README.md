@@ -15,7 +15,7 @@
    - [MacOS](#-macos)
    - [Windows](#-windows)
 5. [Installation](#-installation)
-6. [Post installation (Linux only)](#-post-installation-linux-only)
+6. [Post installation](#-post-installation)
 7. [Deployment](#-deployment):
    - [Docker Compose (recommended)](#-option-1-deploy-using-docker-compose-recommended)
    - [Docker CLI](#-option-2-deploy-using-docker-cli)
@@ -170,13 +170,17 @@ Install Server only (Linux):
 sudo cmake --install build --component wgforge-server
 ```
 
-# 📝 Post installation (Linux only)
+# 📝 Post installation
 
-After manual installation you should execute ```configure.sh``` on not Debian/Fedora based systems:
+After manual installation you should execute ```configure.sh``` on **not** Debian/Fedora based systems if you wish to access WgForge Server configurations and database files as non root (adds current user to *wgforge* group):
 ```bash
-bash configure.sh
+sudo bash configure.sh
 ```
 
+In case using Debian/Fedora **based** systems configure current user manually:
+```bash
+sudo usermod -aG $USER wgforge
+```
 
 # 📦 Deployment
 

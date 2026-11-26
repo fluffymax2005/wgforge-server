@@ -1,0 +1,40 @@
+#!/bin/sh
+
+# .deb based packages
+
+set -e
+
+WGFORGE_GROUP="wgforge"
+CONF_DIR="/etc/wgforge"
+DB_DIR="/var/lib/wgforge"
+
+case "$1" in
+    configure)
+        # 1. Create the group if it doesn't exist
+        if ! getent group "$WGFORGE_GROUP" >/dev/null; then
+            groupadd --system "$WGFORGE_GROUP"
+        fi
+
+        # 2. Create dirs
+        mkdir -p "$CONF_DIR" "$DB_DIR"
+
+        # 3. Set ownership and permissions (2770 allows new files in the directory to inherit the group)
+        chown -R root:"$WGFORGE_GROUP" "$CONF_DIR" "$DB_DIR"
+        chmod -R 2770 "$CONF_DIR" "$DB_DIR"
+
+        # 4. Display instructions for the administrator
+        echo "================================================================="
+        echo " wgforge setup complete."
+        echo " To grant access to a user, add them to the '$WGFORGE_GROUP' group:"
+        echo "   sudo usermod -aG $WGFORGE_GROUP <username>"
+        echo "================================================================="
+    ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0
