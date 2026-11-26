@@ -53,6 +53,7 @@ add_executable(${WGFORGE_SERVER_NAME}
 
     services/peer_service.cpp
     services/wireguard_interface_service.cpp
+    services/peer_expiry_scheduler.cpp
 )
 
 target_include_directories(${WGFORGE_SERVER_NAME}

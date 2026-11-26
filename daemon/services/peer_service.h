@@ -65,14 +65,14 @@ public:
       const RotatePeerPublicKeyRequest& req) override;
   virtual std::future<std::string> getPeerConfigAsync(const PeerConfigRequest& req) override;
 
+  virtual std::future<void> revokeExpiredPeers() override;
+
 private:
   std::shared_ptr<odb::database> context_;
   std::shared_ptr<WgInterface> iface_;
   std::shared_ptr<ConfigManager> config_mgr_;
   std::shared_ptr<ILogger> logger_;
   std::shared_ptr<IConfiguration> configuration_;
-
-  std::string getCurrentUtcTimestamp();
 };
 
 }  // namespace WgForge

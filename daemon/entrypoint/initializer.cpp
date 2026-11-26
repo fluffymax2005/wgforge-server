@@ -178,6 +178,11 @@ econf_file* create_config(std::string_view path, ConfigManager::ConfigReturnCode
 	if ((rc = cfg.write<bool>("Server", "AllowSubnetMigration", false)))
 	  return nullptr;
 
+	// [Server]
+	// PeerExpireUpdate=60
+	if ((rc = cfg.write<int>("Server", "PeerExpireUpdate", 60)))
+	  return nullptr;
+
 	// [Wireguard]
 	// PublicEndpoint=<public_endpoint_of_wireguard_server>
 	// By default <public_ip>:<wireguard_listen_port> by default
@@ -284,6 +289,14 @@ ServerConfig get_server_config(const ConfigManager& config) {
   else
 	throw std::runtime_error(
 	    ConfigErrorHandler::readToString(rc, "Server", "AllowSubnetMigration"));
+
+  if (auto opt = config.tryRead<int>("Server", "PeerExpireUpdate", &rc)) {
+	if (opt.value() <= 0)
+	  throw std::invalid_argument("\"PeerExpireUpdate\" must be positive integer");
+	srvCfg.peer_expire_update = std::chrono::seconds(opt.value());
+  } else
+	throw std::runtime_error(ConfigErrorHandler::readToString(rc, "Server", "PeerExpireUpdate"));
+
 
   return srvCfg;
 }

@@ -32,6 +32,10 @@ set(CPACK_GENERATOR "DEB;RPM;TGZ")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Ledovskiy Maksim <santech_montage@mail.ru>")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libnl-3-200, libnl-route-3-200, libcurl4")
 
+# Post install scripts
+set(CPACK_DEBIAN_PACKAGE_POSTINST_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/packaging/postinst")
+set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/post_rpm.sh")
+
 include(CPack)
 
 

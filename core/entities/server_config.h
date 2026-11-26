@@ -25,6 +25,8 @@
 
 #include <netinet/in.h>
 
+#include <chrono>
+
 namespace WgForge {
 
 /**
@@ -35,6 +37,8 @@ struct ServerConfig {
   in_port_t listenPort;        ///< Listen port
   bool
       allow_subnet_migration;  ///< Allow subnet migration if configuration differs from database meta information
+  std::chrono::seconds
+      peer_expire_update;  ///< Polling frequency for scheduler to investigate expired temporal peers
 };
 
 

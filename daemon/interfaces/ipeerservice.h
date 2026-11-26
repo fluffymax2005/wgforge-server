@@ -69,6 +69,8 @@ public:
   virtual std::future<RotatePeerPublicKeyResponse> rotatePublicKeyAsync(
       const RotatePeerPublicKeyRequest& req) = 0;
   virtual std::future<std::string> getPeerConfigAsync(const PeerConfigRequest& req) = 0;
+
+  virtual std::future<void> revokeExpiredPeers() = 0;
 };
 
 }  // namespace WgForge

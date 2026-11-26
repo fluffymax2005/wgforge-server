@@ -40,6 +40,7 @@ struct UpdatePeerRequest {
   std::optional<Peer::Status> status;
   std::optional<std::string> description;
   std::optional<uint16_t> persistent_keepalive;
+  std::optional<std::string> expired_at;
   std::optional<std::vector<std::string>> add_allowedips;
   std::optional<std::vector<std::string>> remove_allowedips;
 
@@ -50,7 +51,7 @@ struct UpdatePeerRequest {
   [[nodiscard("Peer update necessity should not be ignored")]]
   bool requiresQuery() const noexcept {
 	return endpoint || iface || preshared_key || status || description || persistent_keepalive ||
-	       add_allowedips || remove_allowedips;
+	       add_allowedips || remove_allowedips || expired_at;
   }
 };
 

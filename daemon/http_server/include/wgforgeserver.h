@@ -41,6 +41,7 @@ public:
 
   void setHandler(RequestHandler&& handler) noexcept;
 
+  boost::asio::io_context& getContext() noexcept;
   void run();
 
 private:
@@ -54,6 +55,6 @@ private:
   RequestHandler req_handler_;
 };
 
-} // namespace WgForge
+}  // namespace WgForge
 
-#endif // WGFORGE_WGFORGESERVER_H
+#endif  // WGFORGE_WGFORGESERVER_H

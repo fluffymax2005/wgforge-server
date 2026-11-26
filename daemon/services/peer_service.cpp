@@ -27,6 +27,7 @@
 #include <peer-odb.hxx>
 #include <sstream>
 #include <string>
+#include <time_utils.hpp>
 #include <wgpresharedkey.hpp>
 #include <wgpublickey.hpp>
 
@@ -210,8 +211,7 @@ std::future<CreatePeerResponse> PeerService::createPeerAsync(const CreatePeerReq
 std::future<void> PeerService::updateAsync(const UpdatePeerRequest& req) {
   auto copy = req;
   return std::async(std::launch::async, [this, copy = std::move(copy)] {
-	if (!copy.remove_allowedips && !copy.add_allowedips && !copy.persistent_keepalive &&
-	    !copy.description && !copy.preshared_key && !copy.status)
+	if (!copy.requiresQuery())
 	  return;
 
 	odb::transaction t(context_->begin());
@@ -228,6 +228,8 @@ std::future<void> PeerService::updateAsync(const UpdatePeerRequest& req) {
 	  peer.description = std::move(copy.description.value());
 	if (copy.persistent_keepalive)
 	  peer.persistent_keepalive = std::move(copy.persistent_keepalive.value());
+	if (copy.expired_at)
+	  peer.expired_at = std::move(copy.expired_at.value());
 	peer.updated_at = getCurrentUtcTimestamp();
 	context_->persist(peer);
 
@@ -584,15 +586,28 @@ std::future<std::string> PeerService::getPeerConfigAsync(const PeerConfigRequest
   });
 }
 
-std::string PeerService::getCurrentUtcTimestamp() {
-  auto now = std::chrono::system_clock::now();
-  auto time = std::chrono::system_clock::to_time_t(now);
-  std::tm tm{};
-  gmtime_r(&time, &tm);
+std::future<void> PeerService::revokeExpiredPeers() {
+  return std::async(std::launch::async, [this]() -> void {
+	odb::transaction t(context_->begin());
+	auto query = context_->query<Peer>(odb::query<Peer>::expired_at.is_not_null() &&
+	                                   odb::query<Peer>::expired_at < getCurrentUtcTimestamp());
+	if (query.empty())
+	  return;
 
-  std::ostringstream oss;
-  oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-  return oss.str();
+	for (auto& peer : query) {
+	  peer.deleted_at = getCurrentUtcTimestamp();
+	  WgPublicKey key(peer.public_key);
+	  try {
+		if (iface_->hasPeerWithPublicKey(key))
+		  iface_->removePeer(key);
+		context_->update(peer);
+
+	  } catch (const std::exception& e) {
+		context_->update(peer);
+		throw e;
+	  }
+	}
+  });
 }
 
 }  // namespace WgForge

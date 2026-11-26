@@ -68,6 +68,9 @@ struct Peer {
 #pragma db column("Description") type("VARCHAR(50)")
   std::string description;
 
+#pragma db column("Expired_at") type("DATETIME")
+  std::optional<std::string> expired_at;
+
 #pragma db column("Created_at") type("DATETIME") default("CURRENT_TIMESTAMP")
   std::string created_at;
 
@@ -103,6 +106,7 @@ inline void tag_invoke(json::value_from_tag, json::value& jv, const Peer& peer) 
       {         "allowedIps",                peer.allowed_ips},
       {"persistentKeepalive",       peer.persistent_keepalive},
       {        "description",                peer.description},
+      {          "expiredAt",                 peer.expired_at},
       {          "createdAt",                 peer.created_at},
       {          "updatedAt",    peer.updated_at.value_or("")},
       {          "deletedAt",    peer.deleted_at.value_or("")}
@@ -138,6 +142,7 @@ inline Peer tag_invoke(json::value_to_tag<Peer>, const json::value& jv) {
 
   // Parse opt single values
   peer.preshared_key = parse_opt.operator()<std::string>(obj, "presharedKey");
+  peer.expired_at = parse_opt.operator()<std::string>(obj, "expiredAt");
   peer.updated_at = parse_opt.operator()<std::string>(obj, "updatedAt");
   peer.deleted_at = parse_opt.operator()<std::string>(obj, "deletedAt");
   peer.allowed_ips = parse_opt.operator()<std::vector<std::string>>(obj, "allowedIps");

@@ -42,7 +42,7 @@ WgForgeServer::WgForgeServer(const std::string& address, const std::string& port
   signals_.add(SIGTERM);
 #if defined(SIGQUIT)
   signals_.add(SIGQUIT);
-#endif // defined(SIGQUIT)
+#endif  // defined(SIGQUIT)
 
   do_await_stop();
 
@@ -85,6 +85,7 @@ void WgForgeServer::do_await_stop() {
 	// call will exit.
 	acceptor_.close();
 	con_manager_.stop_all();
+	io_context_.stop();
   });
 }
 
@@ -92,4 +93,8 @@ void WgForgeServer::setHandler(RequestHandler&& handler) noexcept {
   req_handler_ = std::move(handler);
 }
 
-} // namespace WgForge
+boost::asio::io_context& WgForgeServer::getContext() noexcept {
+  return io_context_;
+}
+
+}  // namespace WgForge

@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
+#include <time_utils.hpp>
 #include <vector>
 
 #include "defines.h"
@@ -40,6 +41,7 @@ struct CreatePeerRequest {
   bool generate_preshared_key = true;
   uint16_t persistent_keepalive;
   std::vector<std::string> allowed_ips;
+  std::optional<std::string> expired_at;
 
   CreatePeerRequest(const json::object& o) {
 	auto gen_key_opt = JsonExtensions::get_optional_field<bool>(o, "generatePresharedKey", false);
@@ -63,6 +65,18 @@ struct CreatePeerRequest {
 		throw EndpointInvalidArgument(std::format("Invalid allowed ip at position: {}", i));
 	  } catch (const std::invalid_argument&) {
 		throw EndpointInvalidArgument(std::format("Invalid allowed ip at position: {}", i));
+	  }
+	}
+
+	auto expired_opt = JsonExtensions::get_optional_field<std::string_view>(o, "expiredAt", false);
+	if (expired_opt) {
+	  try {
+		validateIso8601Strptime(expired_opt.value().data());
+		expired_at = expired_at.value();
+	  } catch (const std::invalid_argument& e) {
+		throw EndpointInvalidArgument(e.what());
+	  } catch (const std::exception& e) {
+		throw e;
 	  }
 	}
   }
