@@ -15,14 +15,15 @@
    - [MacOS](#-macos)
    - [Windows](#-windows)
 5. [Installation](#-installation)
-6. [Deployment](#-deployment):
+6. [Post installation (Linux only)](#-post-installation-linux-only)
+7. [Deployment](#-deployment):
    - [Docker Compose (recommended)](#-option-1-deploy-using-docker-compose-recommended)
    - [Docker CLI](#-option-2-deploy-using-docker-cli)
    - [Docker locally](#%EF%B8%8F-option-3-building-the-docker-image-locally)
-7. [Documentation](#-documentation):
+8. [Documentation](#-documentation):
    - [C++](#c)
    - [HTTP API](#http-api)
-8. [Contributing](#-contributing)
+9. [Contributing](#-contributing)
 
 
 # 📖 Introduction
@@ -167,6 +168,13 @@ sudo cmake --install build --component wgforge-cli
 Install Server only (Linux):
 ```bash
 sudo cmake --install build --component wgforge-server
+```
+
+# 📝 Post installation (Linux only)
+
+After manual installation you should execute ```configure.sh``` on not Debian/Fedora based systems:
+```bash
+bash configure.sh
 ```
 
 
