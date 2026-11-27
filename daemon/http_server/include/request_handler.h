@@ -77,6 +77,11 @@ private:
 template<typename Controller, typename Method>
 void RequestHandler::bind_route(http::verb method, const std::string& path,
                                 std::shared_ptr<Controller> controller, Method method_ptr) {
+  static_assert(std::is_member_function_pointer_v<Method>, "method_ptr must be pointer to method");
+  static_assert(std::is_invocable_r_v<void, Method, typename std::add_pointer<Controller>::type,
+                                      RequestConstRef, ResponseRef>,
+                "method_ptr must be callable on Controller* with (RequestConstRef, ResponseRef) "
+                "and return void");
   add_route(method, path, [controller, method_ptr](RequestConstRef req, ResponseRef res) {
 	(controller.get()->*method_ptr)(req, res);
   });
